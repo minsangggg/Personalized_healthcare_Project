@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>제주 농산물 마켓 - 홈</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html">상품</a>
+          <a href="/frontend/about.html">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <h1>제주의 바람과 흙이 길러낸 제철 농산물</h1>
+          <p>산지 직송, 신선함 그대로. 오늘 수확한 제주 농산물을 만나보세요.</p>
+          <div class="hero-actions">
+            <a class="btn primary" href="/frontend/products.html">지금 쇼핑하기</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="features container">
+        <div class="feature">
+          <div class="feature-icon">🚚</div>
+          <h3>산지 직송</h3>
+          <p>제주에서 바로 픽업해 신선도를 지켜 배송합니다.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🌱</div>
+          <h3>친환경 재배</h3>
+          <p>믿을 수 있는 생산자들과의 협력으로 건강한 먹거리를 제공합니다.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🕒</div>
+          <h3>오늘 수확</h3>
+          <p>수확 당일 포장·발송으로 신선함을 그대로 담았습니다.</p>
+        </div>
+      </section>
+
+      <section class="container" id="new-arrivals">
+        <div class="section-header">
+          <h2>금주 신상품</h2>
+          <a href="/frontend/products.html" class="link">전체 보기</a>
+        </div>
+        <div class="grid" id="new-arrivals-grid"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+        <ul class="footer-links">
+          <li><a href="/frontend/about.html">소개</a></li>
+          <li><a href="/frontend/contact.html">문의</a></li>
+          <li><a href="/frontend/checkout.html">결제</a></li>
+        </ul>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        loadNewArrivals();
+        updateCartCount();
+      });
+    </script>
+  </body>
+  </html>
+

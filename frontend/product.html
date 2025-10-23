@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>상품 상세 - 제주 농산물 마켓</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html">상품</a>
+          <a href="/frontend/about.html">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container" id="product-detail">
+      <div class="detail">
+        <div class="detail-media">
+          <img id="product-image" alt="상품 이미지" />
+        </div>
+        <div class="detail-info">
+          <h1 id="product-name"></h1>
+          <p id="product-desc" class="muted"></p>
+          <p class="price"><span id="product-price"></span> 원</p>
+          <div class="qty">
+            <button id="dec">−</button>
+            <input id="qty" type="number" min="1" value="1" />
+            <button id="inc">＋</button>
+          </div>
+          <div class="actions">
+            <button class="btn" id="add-to-cart">장바구니</button>
+            <a class="btn primary" id="buy-now" href="/frontend/checkout.html">바로구매</a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        loadProductDetail();
+        updateCartCount();
+      });
+    </script>
+  </body>
+  </html>
+

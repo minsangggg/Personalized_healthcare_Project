@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>소개 - 제주 농산물 마켓</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html">상품</a>
+          <a href="/frontend/about.html" class="active">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container prose">
+      <h1>우리는 왜 제주 농산물을 합니다</h1>
+      <p>
+        제주의 햇살과 바람, 검은 현무암 토양이 만들어내는 독특한 풍미를
+        보다 많은 분들에게 전하고자 시작했습니다. 생산자와 소비자를 직접 연결해
+        합리적인 가격과 높은 신선도를 동시에 제공합니다.
+      </p>
+      <h2>가치</h2>
+      <ul>
+        <li>산지감동: 수확 당일 배송</li>
+        <li>투명한 정보: 생산지·수확일·등급 공개</li>
+        <li>지속가능성: 친환경 포장재 사용</li>
+      </ul>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => updateCartCount());
+    </script>
+  </body>
+  </html>
+

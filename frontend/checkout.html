@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>결제 - 제주 농산물 마켓</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html">상품</a>
+          <a href="/frontend/about.html">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <h1>결제</h1>
+      <form id="checkout-form" class="checkout-form">
+        <div class="field">
+          <label>이름</label>
+          <input type="text" id="name" required />
+        </div>
+        <div class="field">
+          <label>전화번호</label>
+          <input type="tel" id="phone" required />
+        </div>
+        <div class="field">
+          <label>배송지 주소</label>
+          <input type="text" id="address" required />
+        </div>
+        <div class="field">
+          <label>요청사항</label>
+          <textarea id="memo" rows="3" placeholder="문 앞에 두고 가주세요"></textarea>
+        </div>
+        <div id="checkout-summary" class="checkout-summary"></div>
+        <button class="btn primary" type="submit">결제 완료</button>
+      </form>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        renderCheckoutSummary();
+        updateCartCount();
+        const form = document.getElementById('checkout-form');
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          completeCheckout();
+        });
+      });
+    </script>
+  </body>
+  </html>
+
