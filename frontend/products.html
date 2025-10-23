@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>상품 목록 - 제주 농산물 마켓</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html" class="active">상품</a>
+          <a href="/frontend/about.html">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="section-header">
+        <h1>상품</h1>
+        <div class="filters">
+          <input type="search" id="search" placeholder="상품명 검색" />
+          <select id="category">
+            <option value="">전체 카테고리</option>
+            <option value="감귤">감귤</option>
+            <option value="채소">채소</option>
+            <option value="가공품">가공품</option>
+          </select>
+          <select id="sort">
+            <option value="recent">최신순</option>
+            <option value="price-asc">가격 낮은순</option>
+            <option value="price-desc">가격 높은순</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid" id="products-grid"></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+        <ul class="footer-links">
+          <li><a href="/frontend/about.html">소개</a></li>
+          <li><a href="/frontend/contact.html">문의</a></li>
+          <li><a href="/frontend/checkout.html">결제</a></li>
+        </ul>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        bindProductFilters({
+          onChange: () => renderProductsList(),
+        });
+        renderProductsList();
+        updateCartCount();
+      });
+    </script>
+  </body>
+  </html>
+

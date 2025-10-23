@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>장바구니 - 제주 농산물 마켓</title>
+    <link rel="stylesheet" href="./assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/frontend/index.html" class="logo">Jeju Market</a>
+        <nav class="nav">
+          <a href="/frontend/products.html">상품</a>
+          <a href="/frontend/about.html">소개</a>
+          <a href="/frontend/contact.html">문의</a>
+          <a href="/frontend/cart.html" class="cart-link active">장바구니<span id="cart-count" class="badge">0</span></a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <h1>장바구니</h1>
+      <div id="cart-items"></div>
+      <div class="cart-summary" id="cart-summary"></div>
+      <div class="actions">
+        <a class="btn" href="/frontend/products.html">계속 쇼핑하기</a>
+        <a class="btn primary" href="/frontend/checkout.html">결제하기</a>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p>© 2025 Jeju Agricultural Market</p>
+      </div>
+    </footer>
+
+    <script src="./assets/js/app.js"></script>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        renderCartPage();
+        updateCartCount();
+      });
+    </script>
+  </body>
+  </html>
+
