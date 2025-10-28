@@ -12,6 +12,16 @@ function ymd(d: Date) {
   return `${d.getFullYear()}-${m}-${day}`
 }
 
+function toLocalDate(s?: string | null): Date | null {
+  if (!s) return null
+  const d = new Date(s)
+  if (!isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const t = String(s).trim().slice(0, 10).replace(/[./]/g, '-')
+  const m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return null
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
+
 function firstDayOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
@@ -77,20 +87,31 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
   }, [isLoggedIn])
 
   // 날짜별 그룹
-  const byDate = useMemo(() => {
-    const m = new Map<string, Row[]>()
+  const monthBuckets = useMemo(() => {
+    const map = new Map<number, Row[]>()
+    const yy = month.getFullYear()
+    const mm = month.getMonth()
     for (const r of data?.recipes ?? []) {
-      const d = (r.selected_date ?? '').slice(0, 10)
+      const d = toLocalDate(r.selected_date)
       if (!d) continue
-      const arr = m.get(d) ?? []
+      if (d.getFullYear() !== yy || d.getMonth() !== mm) continue  // ← 현재 달만
+      const day = d.getDate()
+      const arr = map.get(day) ?? []
       arr.push(r)
-      m.set(d, arr)
+      map.set(day, arr)
     }
-    return m
-  }, [data])
+    return map
+  }, [data, month])
 
   const cells = useMemo(() => getCalendarGrid(month), [month])
-  const selectedRecipes = selectedDay ? (byDate.get(selectedDay) ?? []) : []
+  const selectedRecipes = useMemo(() => {
+    if (!selectedDay) return []
+    const d = toLocalDate(selectedDay)
+    if (!d) return []
+    // selectedDay가 현재 month와 다르면 빈 배열
+    if (d.getFullYear() !== month.getFullYear() || d.getMonth() !== month.getMonth()) return []
+    return monthBuckets.get(d.getDate()) ?? []
+  }, [selectedDay, month, monthBuckets])
 
   const now = new Date()
   const todayStr = ymd(now)
@@ -135,10 +156,12 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
               <div className="weeks">
                 {cells.map((d, i) => {
                   const dayStr = ymd(d)
-                  const count = dayStr ? (byDate.get(dayStr)?.length ?? 0) : 0
+                  const inMonth = isSameMonth(d)
+                  const count = inMonth ? (monthBuckets.get(d.getDate())?.length ?? 0) : 0
+
                   const classes = [
                     'cell','day',
-                    isSameMonth(d) ? 'cur' : 'dim',
+                    inMonth ? 'cur' : 'dim',
                     dayStr === todayStr ? 'today' : '',
                     count > 0 ? 'has' : '',
                     selectedDay === dayStr ? 'sel' : ''
@@ -148,7 +171,7 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
                     <button
                       key={`${d.getTime()}-${i}`}
                       className={classes}
-                      onClick={() => dayStr && setSelectedDay(dayStr)}
+                      onClick={() => setSelectedDay(dayStr)}
                       title={count > 0 ? `${count}개 기록` : undefined}
                     >
                       <span className="dnum">{d.getDate()}</span>

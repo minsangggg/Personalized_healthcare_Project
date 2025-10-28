@@ -380,16 +380,54 @@ def me_selected_recipe(b: SelectIn, current_user: str = Depends(get_current_user
 @app.get("/recipes/selected")
 def get_selected_recipes(current_user: str = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("""
-            SELECT sr.selected_id, sr.recommend_id, sr.selected_date,
-                   rr.recipe_id, r.recipe_nm_ko AS title, r.cooking_time, r.level_nm AS difficulty
-            FROM selected_recipe sr
-            JOIN recommend_recipe rr ON sr.recommend_id = rr.recommend_id
-            JOIN recipe r ON rr.recipe_id = r.recipe_id
-            WHERE rr.id = %s
-            ORDER BY sr.selected_date DESC
-        """, (current_user,))
+        sql = """
+        SELECT
+          sr.selected_id,
+          sr.recommend_id,
+          rr.recipe_id,
+          r.recipe_nm_ko AS title,
+          r.cooking_time,
+          r.level_nm AS difficulty,
+
+          /* 날짜만 추출(형식 혼재 대응) */
+          CASE
+            WHEN sr.selected_date REGEXP '^[0-9]{4}/'
+              THEN DATE(STR_TO_DATE(sr.selected_date, '%%Y/%%m/%%d %%H:%%i:%%s'))
+            WHEN sr.selected_date REGEXP '^[0-9]{4}-'
+              THEN DATE(sr.selected_date)
+            WHEN sr.selected_date REGEXP '^[0-9]{4}[.]'
+              THEN DATE(STR_TO_DATE(sr.selected_date, '%%Y.%%m.%%d %%H:%%i:%%s'))
+            ELSE NULL
+          END AS selected_date_only,
+
+          /* 정렬 키(원본이 VARCHAR여도 정렬 안정) */
+          CASE
+            WHEN sr.selected_date REGEXP '^[0-9]{4}/'
+              THEN STR_TO_DATE(sr.selected_date, '%%Y/%%m/%%d %%H:%%i:%%s')
+            WHEN sr.selected_date REGEXP '^[0-9]{4}-'
+              THEN sr.selected_date
+            WHEN sr.selected_date REGEXP '^[0-9]{4}[.]'
+              THEN STR_TO_DATE(sr.selected_date, '%%Y.%%m.%%d %%H:%%i:%%s')
+            ELSE NULL
+          END AS sort_key
+
+        FROM selected_recipe sr
+        JOIN recommend_recipe rr ON sr.recommend_id = rr.recommend_id
+        JOIN recipe r ON rr.recipe_id = r.recipe_id
+        WHERE rr.id = %s
+        ORDER BY sort_key DESC
+        """
+        cur.execute(sql, (current_user,))
         rows = cur.fetchall() or []
+
+    # 날짜는 항상 'YYYY-MM-DD'로 내려주기
+    def to_yyyy_mm_dd(x):
+      # PyMySQL DictCursor면 date/datetime이면 isoformat 있음
+      try:
+          return x.isoformat()
+      except Exception:
+          return str(x) if x is not None else None
+
     return {
         "user_id": current_user,
         "count": len(rows),
@@ -401,7 +439,8 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
                 "title": r["title"],
                 "cooking_time": r.get("cooking_time"),
                 "difficulty": r.get("difficulty"),
-                "selected_date": to_iso(r.get("selected_date")),
-            } for r in rows
+                "selected_date": to_yyyy_mm_dd(r.get("selected_date_only")),
+            }
+            for r in rows
         ],
     }
