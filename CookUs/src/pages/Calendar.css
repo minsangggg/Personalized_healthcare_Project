@@ -29,23 +29,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 15px;
   margin-bottom: 12px;
 }
 .cal-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 .month-label {
-  min-width: 120px;
+  min-width: 110px;
   text-align: center;
   font-weight: 600;
 }
 
 /* 버튼 프리셋(간단) */
 .btn {
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
   background: #fff;
@@ -66,7 +66,7 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
 }
-.calendar .cell { box-sizing: border-box; }  /* ✅ 안전 */
+.calendar .cell { box-sizing: border-box; }
 .calendar .cell.head {
   padding: 10px 0;
   text-align: center;
@@ -88,7 +88,7 @@
   border-bottom: 1px solid #f1f3f5;
   background: #fff;
   text-align: left;
-  padding: 8px;
+  padding: 18px;
   cursor: pointer;
 }
 .calendar .cell.day:nth-child(7n) { border-right: 0; }
