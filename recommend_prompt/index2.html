@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>CookUS – 레시피 추천 테스트 v2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --brand:#f59e0b; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    h1  { font-size: 28px; margin: 0 0 8px; }
+    .muted { color:#666; font-size:14px; }
+    .row { display:flex; flex-wrap: wrap; gap:10px; align-items:center; margin:16px 0 8px; }
+    button { padding:10px 14px; border:none; border-radius:10px; background:var(--brand); color:#fff; font-weight:600; cursor:pointer; }
+    button.secondary { background:#374151; }
+    code { background:#fafafa; border:1px solid #eee; padding:2px 6px; border-radius:6px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .card { border:1px solid #eee; border-radius:12px; padding:16px; margin:14px 0; box-shadow:0 1px 4px rgba(0,0,0,.06); background:#fff; }
+    .status { margin-left:6px; }
+    .divider { height:1px; background:#eee; margin:14px 0; }
+  </style>
+</head>
+<body>
+  <h1>CookUS – 레시피 추천 테스트 v2</h1>
+  <p class="muted">백엔드: <code>http://localhost:8000</code></p>
+
+  <div class="row">
+    <button id="btnFetch">레시피 추천받기 (3개)</button>
+    <button id="btnMore" class="secondary">다시 추천 (앞에 본 것 제외)</button>
+    <button id="btnReset" class="secondary" title="화면과 제외목록 초기화">초기화</button>
+    <span class="muted status" id="status">대기 중…</span>
+  </div>
+
+  <h3>내 냉장고</h3>
+  <div id="fridge" class="chips"></div>
+
+  <h3>추천 결과</h3>
+  <div id="results"></div>
+
+  <script>
+    // 백엔드 주소 (필요하면 수정)
+    const BASE = "http://localhost:8000";
+
+    // === 전역 상태 ===
+    let currentUserId = null;    // 현재 사용자
+    let seenIds = [];            // 이미 본 recipe_id 누적
+
+    // ---- 유틸 ----
+    const $status  = document.getElementById('status');
+    const $fridge  = document.getElementById('fridge');
+    const $results = document.getElementById('results');
+
+    function setStatus(text) {
+      if ($status) $status.textContent = text;
+    }
+
+    function renderFridge(list) {
+      $fridge.innerHTML = (list || []).map(x => `<code>${x}</code>`).join(" ");
+    }
+
+    // "교체 렌더": 누적하지 않고 항상 최신 결과 1개 카드만 보여줌
+    function renderResult(text) {
+      $results.innerHTML = "";
+      const card = document.createElement('div');
+      card.className = 'card';
+      const pre = document.createElement('pre');
+      pre.style.whiteSpace = 'pre-wrap';
+      pre.textContent = text || '(내용 없음)';
+      card.appendChild(pre);
+      $results.appendChild(card);
+    }
+
+    async function callApi(url, options = {}) {
+      setStatus("불러오는 중…");
+      const res = await fetch(url, {
+        method: options.method || 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        // 다른 오리진에서 쿠키를 쓸 땐 credentials:'include'와 CORS 조정 필요
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        const msg = data.error || `API 오류: ${res.status}`;
+        throw new Error(msg);
+      }
+      setStatus("완료");
+      return data;
+    }
+
+    // 1) 새 사용자로 시작: POST /me/recommendations/new-user
+    async function onClickNewUser() {
+      try {
+        const data = await callApi(`${BASE}/me/recommendations/new-user`, { method: 'POST' });
+
+        // 상태 갱신
+        currentUserId = data.userId || null;
+        seenIds = Array.isArray(data.picks) ? [...data.picks] : [];
+
+        // 화면 교체 렌더
+        renderFridge(data.fridgeSample || []);
+        renderResult(data.llm_recommendation_text);
+      } catch (e) {
+        setStatus(e.message);
+      }
+    }
+
+    // 2) 같은 사용자에서 앞에 본 것 제외: GET /me/recommendations?userId=...&excludeIds=...
+    async function onClickNext() {
+      try {
+        if (!currentUserId) {
+          // 아직 세션 시작 안 했다면 새 사용자부터
+          return onClickNewUser();
+        }
+        const qs = new URLSearchParams({ userId: currentUserId, limit: "3" });
+        if (seenIds.length) qs.set("excludeIds", seenIds.join(","));
+
+        const data = await callApi(`${BASE}/me/recommendations?${qs.toString()}`);
+
+        // 동일 사용자 유지 확인 및 seenIds 누적
+        if (Array.isArray(data.picks)) {
+          for (const id of data.picks) if (!seenIds.includes(id)) seenIds.push(id);
+        }
+
+        // 화면 교체 렌더
+        renderFridge(data.fridgeSample || []);
+        renderResult(data.llm_recommendation_text);
+      } catch (e) {
+        setStatus(e.message);
+      }
+    }
+
+    // 3) 초기화: 상태와 화면 모두 리셋 (다음 호출은 새 사용자부터 시작)
+    function onClickReset() {
+      currentUserId = null;
+      seenIds = [];
+      $fridge.innerHTML = "";
+      $results.innerHTML = "";
+      setStatus("초기화 완료. 대기 중…");
+    }
+
+    // 버튼 연결
+    document.getElementById('btnFetch').addEventListener('click', onClickNewUser);
+    document.getElementById('btnMore').addEventListener('click', onClickNext);
+    document.getElementById('btnReset').addEventListener('click', onClickReset);
+  </script>
+</body>
+</html>
