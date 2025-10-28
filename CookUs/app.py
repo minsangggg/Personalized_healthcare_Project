@@ -378,7 +378,7 @@ def me_selected_recipe(b: SelectIn, current_user: str = Depends(get_current_user
     return {"ok": True}
 
 @app.get("/recipes/selected")
-def get_selected_recipes(user_id: str = Query(..., description="사용자 ID")):
+def get_selected_recipes(current_user: str = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("""
             SELECT sr.selected_id, sr.recommend_id, sr.selected_date,
@@ -388,10 +388,10 @@ def get_selected_recipes(user_id: str = Query(..., description="사용자 ID")):
             JOIN recipe r ON rr.recipe_id = r.recipe_id
             WHERE rr.id = %s
             ORDER BY sr.selected_date DESC
-        """, (user_id,))
+        """, (current_user,))
         rows = cur.fetchall() or []
     return {
-        "user_id": user_id,
+        "user_id": current_user,
         "count": len(rows),
         "recipes": [
             {
