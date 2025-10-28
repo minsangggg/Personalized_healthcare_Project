@@ -48,11 +48,13 @@ export const recipeAPI = {
       : (data?.recommended_db_candidates ?? data?.recommended ?? [])
     return list.map(normalize).filter(x => Number.isFinite(x.id))
   },
+
   async selectRecipe(recipeId: number): Promise<void> {
     await api.post('/me/selected-recipe', { recipe_id: recipeId })
   },
-  async getSelected(userId: string) {
-    const { data } = await api.get('/recipes/selected', { params: { user_id: userId } })
+
+  async getSelected(): Promise<SelectedRecipesResponse> {
+    const { data } = await api.get('/recipes/selected')
     return data
   },
 }
