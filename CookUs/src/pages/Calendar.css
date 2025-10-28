@@ -1,0 +1,24 @@
+.cal { padding:10px; }
+.cal-card { padding:14px; }
+
+.title{ margin:0 0 6px; color:#5a3b2a; }
+.muted{ color:#7b5a40; }
+.error{
+  margin-top:8px; background:#FCE1E1; border:1px solid #E8B1B1;
+  color:#9b2f2f; padding:8px 10px; border-radius:10px;
+}
+.empty{
+  margin-top:8px; background:#fff7e9; border:1px dashed #e0c47b;
+  color:#7b4e2d; padding:12px; border-radius:10px; text-align:center;
+}
+
+.days{ display:grid; gap:10px; margin-top:8px; }
+.day{ border:1px solid #e9c86f; border-radius:12px; background:#fffdf2; }
+.day-head{
+  padding:8px 12px; border-bottom:1px solid #e9c86f;
+  font-weight:900; color:#5a3b2a; background:#fff8e2; border-top-left-radius:12px; border-top-right-radius:12px;
+}
+.list{ list-style:none; padding:8px; margin:0; display:grid; gap:6px; }
+.row{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:#fff; border:1px solid #e9c86f; border-radius:10px; padding:8px 10px; }
+.row .title{ font-weight:800; color:#3b2a1d; }
+.row .meta{ color:#7b5a40; font-size:12px; }

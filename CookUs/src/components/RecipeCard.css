@@ -1,0 +1,75 @@
+/* ===== Recipe Card (앱 프레임 톤) ===== */
+.rc-card{
+  background:#FFF7DD;
+  border:1px solid #E3C881;
+  border-radius:14px;
+  box-shadow:0 8px 20px rgba(0,0,0,.06);
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;            /* 축약 폭 대응 */
+}
+
+.rc-title{
+  margin:0;
+  color:#5b3a22;
+  font-size:16px;
+  font-weight:800;
+}
+
+.rc-meta{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  flex-wrap:wrap;
+  color:#7b4e2d;
+  font-size:12px;
+}
+
+.chip{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#FFF3CF;
+  border:1px solid #E3C881;
+  color:#5b3a22;
+  font-size:12px;
+  font-weight:700;
+}
+
+.rc-ings{
+  color:#7b4e2d;
+  font-size:14px;
+  min-height:40px;     /* 2줄 영역 확보 */
+  line-height:1.35;
+}
+
+.rc-foot{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:6px;
+}
+
+/* 버튼은 앱 공통 클래스(.btn .primary) 사용 */
+.btn{
+  appearance:none;
+  border:1px solid #E3C881;
+  background:#FFF3CF;
+  color:#5b3a22;
+  padding:8px 12px;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.btn.primary{
+  background:#F39C3A;
+  border-color:#F39C3A;
+  color:#fff;
+}
+
+/* 표준 + webkit line-clamp (App.css의 clamp 유틸과 톤 맞춤)
+   필요 시 이 파일만 가져다 써도 동작하도록 넣어둠 */
+.clamp-1{ line-clamp:1; -webkit-line-clamp:1; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
+.clamp-2{ line-clamp:2; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
+.clamp-3{ line-clamp:3; -webkit-line-clamp:3; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
