@@ -1,0 +1,87 @@
+/* ===== Login/Signup Modal ===== */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.45);
+  display:grid; place-items:center; z-index:1000;
+}
+.modal.login{
+  width:min(420px, 92vw); max-height:86vh; overflow:auto;
+  background:#FFF6D8; border:1px solid #E3C881; border-radius:16px;
+  box-shadow:0 18px 40px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.6);
+  padding:18px 16px 16px; color:#5b3a22; position:relative;
+}
+.modal-x{
+  position:absolute; right:10px; top:10px; width:32px; height:32px; border-radius:50%;
+  border:1px solid #E3C881; background:#FFF3CF; cursor:pointer; font-size:20px; line-height:28px; color:#5b3a22;
+}
+.modal-title{ margin:6px 0 6px; text-align:center; font-size:22px; font-weight:900; }
+.modal-desc{ margin:0 0 12px; text-align:center; opacity:.9; }
+.login-form{ display:flex; flex-direction:column; gap:10px; }
+.f-row{ display:flex; flex-direction:column; gap:7px; }
+.f-row span{ font-size:13px; color:#7b4e2d; }
+.f-row input{
+  height:40px; border-radius:10px; border:1px solid #E3C881;
+  background:#FFFDF2; padding:0 10px; color:#5b3a22;
+}
+
+/* === Pretty Radio (pill) for LoginModal === */
+.pill-group{ display:flex; gap:10px; align-items:center; }
+
+/* 접근성: 진짜 라디오는 숨기되 포커스 가능 */
+.radio{
+  position:absolute;
+  inline-size:1px; block-size:1px;
+  margin:-1px; padding:0; border:0;
+  clip:rect(0 0 0 0); overflow:hidden;
+}
+
+/* 버튼형 라벨 */
+.rbtn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:30px; padding:0 12px;
+  border-radius:999px;
+  background:#FFF3CF;
+  border:1px solid #E3C881;
+  color:#5b3a22;
+  font-weight:400;
+  cursor:pointer; user-select:none;
+}
+
+.rbtn::before{
+  content:""; inline-size:16px; block-size:16px; border-radius:50%;
+  border:1px solid #b28a58; background:#fff;
+  box-shadow: inset 0 0 0 4px transparent;
+}
+
+.rbtn:hover{ transform: translateY(-1px); }
+
+/* 체크 상태 */
+.radio:checked + .rbtn{
+  background:#F39C3A;
+  border-color:#E1872A;
+  color:#fff;
+}
+.radio:checked + .rbtn::before{
+  border-color:#fff;
+  box-shadow: inset 0 0 0 4px #fff;
+  background: rgba(255,255,255,.25);
+}
+
+/* 키보드 포커스 링 */
+.radio:focus-visible + .rbtn{
+  outline:2px solid #7b4e2d;
+  outline-offset:2px;
+}
+
+.password-with-link{ position:relative; display:flex; flex-direction:column; }
+.password-with-link .signup-inline{
+  position:absolute; right:4px; bottom:-18px; background:none; border:none; color:#c4641c; font-weight:700; cursor:pointer; text-decoration:underline; padding:0;
+}
+.form-error{
+  background:#FCE1E1; border:1px solid #E8B1B1; color:#9b2f2f;
+  border-radius:10px; padding:8px 10px; font-size:13px;
+}
+.modal .btn.primary{
+  height:40px; border-radius:10px; border:1px solid rgba(0,0,0,.05);
+  background:#F39C3A; color:#fff; font-weight:800;
+  box-shadow:0 6px 14px rgba(243,156,58,.35);
+}
