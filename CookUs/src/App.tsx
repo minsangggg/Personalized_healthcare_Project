@@ -7,7 +7,8 @@ import Calendar from './pages/Calendar'
 import Dashboard from './pages/Dashboard'
 import MyPage from './pages/MyPage'
 import Navigation from './components/Navigation'
-import LoginModal from './components/LoginModal'
+import LoginDialog from './components/LoginDialog'
+import SignupDialog from './components/SignupDialog'
 
 import { authAPI } from './api/auth'
 
@@ -19,6 +20,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [showLogin, setShowLogin] = useState(false)
   const [booting, setBooting] = useState(true)
+  const [showSignup, setShowSignup] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -58,6 +60,7 @@ export default function App() {
           isLoggedIn={isLoggedIn}
           user={user}
           onLoginClick={() => setShowLogin(true)}
+          onSignupClick={() => setShowSignup(true)}
           onLogout={handleLogout}
         />
 
@@ -81,7 +84,14 @@ export default function App() {
       </div>
 
       {showLogin && (
-        <LoginModal onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} />
+        <LoginDialog onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} />
+      )}
+
+      {showSignup && (
+        <SignupDialog
+          onClose={() => setShowSignup(false)}
+          onSuccess={(u) => { setUser(u); setShowSignup(false); }}
+        />
       )}
     </div>
   )
