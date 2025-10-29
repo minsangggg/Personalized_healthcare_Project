@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { authAPI } from '../api/auth'
-import type { User } from '../App'
+import type { User } from '../api/auth'
+import EditProfileDialog from '../components/EditProfileDialog'
 import './MyPage.css'
 
 type Props = { isLoggedIn: boolean; onRequireLogin: () => void }
@@ -9,23 +10,50 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
   const [me, setMe] = useState<User | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showEdit, setShowEdit] = useState(false)
+
+  const fetchMe = async () => {
+    setLoading(true); setError(null)
+    try { setMe(await authAPI.me()) }
+    catch { setError('내 정보를 불러오지 못했습니다.') }
+    finally { setLoading(false) }
+  }
+
+  function FieldRow({
+    label,
+    value,
+    chip,
+    chipVariant = 'beige',
+  }: {
+    label: string
+    value?: React.ReactNode
+    chip?: string
+    chipVariant?: 'beige' | 'mint'
+  }) {
+    return (
+      <div className="field">
+        <div className="field-label">{label}</div>
+        <div className="field-val">
+          {value && <div className="value">{value}</div>}
+          {chip && (
+            <span
+              className={[
+                'chip','chip--tiny',
+                chipVariant === 'mint' ? 'ghost' : ''
+              ].join(' ')}
+            >
+              {chip}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
 
   useEffect(() => {
-    let alive = true
-    const run = async () => {
-      if (!isLoggedIn) { setMe(null); return }
-      setLoading(true); setError(null)
-      try {
-        const data = await authAPI.me()
-        if (alive) setMe(data)
-      } catch (e) {
-        if (alive) setError('내 정보를 불러오지 못했습니다.')
-      } finally {
-        if (alive) setLoading(false)
-      }
-    }
-    run()
-    return () => { alive = false }
+    if (isLoggedIn) fetchMe()
+    else setMe(null)
   }, [isLoggedIn])
 
   if (!isLoggedIn) {
@@ -56,26 +84,37 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
 
         <div className="divider" />
 
-        <div className="grid">
-          <Item label="목표(주)" value="—" />
-          <Item label="요리 레벨" value="—" />
-          <Item label="이메일" value="—" />
+        <div className="fields">
+          <FieldRow
+            label="이메일"
+            value={<span className="value-strong">{me?.email ?? '—'}</span>}
+          />
+          <FieldRow
+            label="성별"
+            chip={me?.gender ? (me.gender === 'male' ? '남' : '여') : undefined}
+            chipVariant="mint"
+          />
+          <FieldRow label="생년월일" value={me?.date_of_birth ?? '—'} />
+          <FieldRow label="주간 목표" value={me?.goal != null ? String(me.goal) : '—'} />
+          <FieldRow
+            label="요리 레벨"
+            chip={me?.cooking_level ?? undefined}
+            chipVariant="beige"
+          />
         </div>
 
         <div className="actions">
-          <button className="btn ghost" onClick={onRequireLogin}>프로필 수정(준비중)</button>
+          <button className="btn" onClick={() => setShowEdit(true)}>프로필 수정</button>
         </div>
-        <p className="hint">※ 현재 백엔드 /me 응답은 user_id, user_name만 제공 중이에요.</p>
       </div>
-    </section>
-  )
-}
 
-function Item({label, value}:{label:string; value:string}) {
-  return (
-    <div className="item">
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-    </div>
+      {showEdit && me && (
+        <EditProfileDialog
+          me={me}
+          onClose={() => setShowEdit(false)}
+          onSaved={async () => { setShowEdit(false); await fetchMe() }}
+        />
+      )}
+    </section>
   )
 }
