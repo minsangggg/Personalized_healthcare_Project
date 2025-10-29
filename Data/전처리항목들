@@ -1,0 +1,7 @@
+servings는 cooking_time과 step_text를 보고 채우기
+cooking_time은 servings와 step_text를 보고 결측치 채우기
+level_nm은 초급->하, 중급->상으로 바꿔주고, 아무나는 cooking_time이 30이상이면 상  30미만이면 하로 바꾸고, 결측치는 servings가 5이상이면 상으로 채우기. 
+ingredient_full, step_text,tag에서 긴 공백제거
+텍스트전처리 항목: ~,~~, ^^, \n, .., ..., ♥,+,_  전부 제거
+인덱스 재정렬
+LLM태그 생성
