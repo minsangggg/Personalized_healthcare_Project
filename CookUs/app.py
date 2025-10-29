@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 import os, re, secrets, hashlib
+import random
+import string
 from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Literal
@@ -9,7 +11,7 @@ from typing import List, Dict, Any, Optional, Literal
 import pandas as pd
 import pymysql
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, Depends, Response, Request, Cookie
+from fastapi import FastAPI, HTTPException, Query, Depends, Response, Request, Cookie, Body, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
@@ -19,11 +21,66 @@ from jose import jwt, JWTError
 from jose.exceptions import ExpiredSignatureError
 from datetime import timezone
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
 ACCESS_MIN = int(os.getenv("ACCESS_MIN", "30"))
 REFRESH_DAYS = int(os.getenv("REFRESH_DAYS", "7"))
+
+SEND_EMAILS = os.getenv("SEND_EMAILS", "false").lower() == "true"
+DEV_RETURN_CODES = os.getenv("DEV_RETURN_CODES", "false").lower() == "true"
+
+ACCESS_EXPIRE_MIN   = int(os.getenv("ACCESS_EXPIRE_MIN", "30"))
+REFRESH_EXPIRE_DAYS = int(os.getenv("REFRESH_EXPIRE_DAYS", "7"))
+FRONT_ORIGIN        = os.getenv("FRONT_ORIGIN", "http://localhost:5173")
+
+SMTP_HOST = os.getenv("SMTP_HOST", "127.0.0.1")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "25"))
+SMTP_FROM = os.getenv("SMTP_FROM", "noreply@cookus.example.com")
+SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "false").lower() == "true"
+SMTP_SSL_TLS  = os.getenv("SMTP_SSL_TLS", "false").lower() == "true"
+
+print(f"[AUTH-BOOT] algo={JWT_ALG} secret={JWT_SECRET[:3]}*** len={len(JWT_SECRET)}")
+print(f"[SMTP] host={SMTP_HOST} port={SMTP_PORT} from={SMTP_FROM} STARTTLS={SMTP_STARTTLS} SSL_TLS={SMTP_SSL_TLS}")
+
+# =========================
+# 메일 설정 & 인증코드 저장소(메모리)
+# =========================
+mail_conf = ConnectionConfig(
+    MAIL_USERNAME="",
+    MAIL_PASSWORD="",
+    MAIL_FROM=SMTP_FROM,
+    MAIL_SERVER=SMTP_HOST,
+    MAIL_PORT=SMTP_PORT,
+    MAIL_STARTTLS=SMTP_STARTTLS,
+    MAIL_SSL_TLS=SMTP_SSL_TLS,
+    USE_CREDENTIALS=False,
+    VALIDATE_CERTS=False,
+)
+fast_mail = FastMail(mail_conf)
+
+# purpose: "find_id" / "find_pw"  (키는 email 기준, find_pw는 id도 같이 저장)
+verification_store: Dict[str, Dict[str, Any]] = {}
+CODE_TTL_MIN = 10
+
+def _code_key(purpose: str, email: str) -> str:
+    return f"{purpose}:{email}"
+
+def _make_code(n: int = 6) -> str:
+    return "".join(random.choices(string.digits, k=n))
+
+async def send_email(to_email: str, subject: str, body_text: str):
+    msg = MessageSchema(subject=subject, recipients=[to_email], body=body_text, subtype="plain")
+
+    # 개발모드: 실제 발송하지 않음
+    if not SEND_EMAILS:
+        print(f"[DEV EMAIL] To={to_email}\nSubject={subject}\n{body_text}")
+        return
+    try:
+        await fast_mail.send_message(msg)
+    except Exception as e:
+        print(f"[EMAIL ERROR] {e}")
 
 def _utc_now():
     return datetime.now(timezone.utc)
@@ -139,6 +196,14 @@ class AuthSignupIn(BaseModel):
     date_of_birth: Optional[str] = None
     cooking_level: Literal["상","하"]
     goal: int = Field(0, ge=0, le=21)
+    
+class MeUpdateIn(BaseModel):
+    user_name: Optional[str] = None
+    email: Optional[str] = None
+    gender: Optional[Literal['male', 'female']] = None
+    date_of_birth: Optional[str] = Field(None, pattern=r'^\d{4}-\d{2}-\d{2}$')
+    goal: Optional[int] = Field(None, ge=0, le=21)
+    cooking_level: Optional[Literal['상', '하']] = None
 
 class SaveItem(BaseModel):
     name: str
@@ -269,10 +334,216 @@ def auth_logout(response: Response, refresh: Optional[str] = Cookie(default=None
 @app.get("/me")
 def me(current_user: str = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("SELECT id AS user_id, user_name FROM user_info WHERE id=%s", (current_user,))
+        cur.execute("""
+            SELECT
+                id             AS user_id,
+                user_name      AS user_name,
+                email          AS email,
+                gender         AS gender,
+                date_of_birth  AS date_of_birth,
+                goal           AS goal,
+                cooking_level  AS cooking_level
+            FROM user_info
+            WHERE id = %s
+        """, (current_user,))
         row = cur.fetchone()
-        if not row: raise HTTPException(404, "User not found")
+
+    if not row:
+        raise HTTPException(status_code=404, detail="user not found")
+
+    return row
+
+@app.put("/me")
+def update_me(b: MeUpdateIn, current_user: str = Depends(get_current_user)):
+    fields = []
+    params = []
+
+    if b.user_name is not None:
+        fields.append("user_name=%s"); params.append(b.user_name.strip())
+    if b.email is not None:
+        fields.append("email=%s"); params.append(b.email.strip())
+    if b.gender is not None:
+        fields.append("gender=%s"); params.append(b.gender)
+    if b.date_of_birth is not None:
+        fields.append("date_of_birth=%s"); params.append(b.date_of_birth or None)
+    if b.goal is not None:
+        fields.append("goal=%s"); params.append(int(b.goal))
+    if b.cooking_level is not None:
+        fields.append("cooking_level=%s"); params.append(b.cooking_level)
+
+    if not fields:
+        raise HTTPException(400, "no fields to update")
+
+    with get_conn() as conn, conn.cursor() as cur:
+        sql = f"UPDATE user_info SET {', '.join(fields)} WHERE id=%s"
+        cur.execute(sql, (*params, current_user))
+        # 변경된 최신값 다시 반환
+        cur.execute("""
+            SELECT
+                id AS user_id, user_name, email, gender,
+                date_of_birth, goal, cooking_level
+            FROM user_info WHERE id=%s
+        """, (current_user,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "user not found")
         return row
+
+# =========================
+# 아이디 찾기: 코드발송 → 코드검증 후 ID 반환
+# =========================
+@app.post("/auth/find-id")
+async def find_id_send_code(payload: Dict[str, Any] = Body(...)):
+    # 이름(선택) + 이메일(필수)
+    username = (payload.get("username") or "").strip()
+    email    = (payload.get("email") or "").strip()
+    if not email:
+        raise HTTPException(400, "email required")
+
+    # 이메일(+선택적으로 이름)으로 사용자 존재 확인
+    with get_conn() as conn, conn.cursor() as cur:
+        if username:
+            cur.execute("SELECT id FROM user_info WHERE email=%s AND user_name=%s", (email, username))
+        else:
+            cur.execute("SELECT id FROM user_info WHERE email=%s", (email,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "no user with that email (and name)")
+
+        user_id = row["id"]
+
+    # 인증코드 생성/저장
+    code = _make_code()
+    key = _code_key("find_id", email)
+    verification_store[key] = {
+        "code": code,
+        "expires_at": _utc_now() + timedelta(minutes=CODE_TTL_MIN),
+        "user_id": user_id,
+    }
+
+    # 메일 발송
+    try:
+        await send_email(
+            to_email=email,
+            subject="[CookUS] 아이디 찾기 인증코드",
+            body_text=f"인증코드: {code}\n(유효기간 {CODE_TTL_MIN}분)\n이 코드를 앱에 입력하면 아이디를 확인할 수 있어요.",
+        )
+    except Exception as e:
+        # 개발 중에는 200으로 계속 진행(응답에 dev_code 있으니 테스트 가능)
+        print(f"[MAIL SEND WARN] {e}")
+
+    # 개발 편의: 코드 되돌려주기
+    resp = {"ok": True}
+    if DEV_RETURN_CODES:
+        resp["dev_code"] = code
+        resp["expires_in_sec"] = CODE_TTL_MIN * 60
+    return resp
+
+
+
+# ✅ 아이디 찾기: 코드 검증
+@app.post("/auth/find-id/verify")
+def find_id_verify(payload: Dict[str, Any] = Body(...)):
+    """
+    Request:
+      { "email": "<사용자 이메일>", "code": "<인증코드>" }
+    Response:
+      { "user_id": "<해당 사용자의 ID>" }
+    """
+    email = (payload.get("email") or "").strip()
+    code  = (payload.get("code") or "").strip()
+    if not email or not code:
+        raise HTTPException(status_code=400, detail="email/code required")
+
+    key = _code_key("find_id", email)           # 예: "find_id:<email>"
+    data = verification_store.get(key)
+    if not data:
+        raise HTTPException(status_code=400, detail="no pending verification")
+
+    # 만료 확인
+    if _utc_now() > data["expires_at"]:
+        verification_store.pop(key, None)
+        raise HTTPException(status_code=400, detail="code expired")
+
+    # 코드 비교
+    if code != data["code"]:
+        raise HTTPException(status_code=400, detail="invalid code")
+
+    user_id = data["user_id"]
+
+    # 1회성 사용: 성공 시 즉시 삭제
+    verification_store.pop(key, None)
+
+    return {"user_id": user_id}
+
+
+
+# =========================
+# 비밀번호 찾기: 코드발송 → 코드검증+변경
+# =========================
+@app.post("/auth/find-password")
+async def find_pw_send_code(payload: Dict[str, Any] = Body(...)):
+    user_id = (payload.get("id") or "").strip()
+    email   = (payload.get("email") or "").strip()
+    if not user_id or not email:
+        raise HTTPException(400, "id/email required")
+
+    # id + email 매칭 확인
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM user_info WHERE id=%s AND email=%s", (user_id, email))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "no match for id+email")
+
+    # 인증코드 생성/저장
+    code = _make_code()
+    key = _code_key("find_pw", email)
+    verification_store[key] = {
+        "code": code,
+        "expires_at": _utc_now() + timedelta(minutes=CODE_TTL_MIN),
+        "user_id": user_id,
+    }
+
+    # 메일 발송
+    await send_email(
+        to_email=email,
+        subject="[CookUS] 비밀번호 재설정 인증코드",
+        body_text=f"인증코드: {code}\n(유효기간 {CODE_TTL_MIN}분)\n이 코드를 앱에 입력하면 비밀번호를 변경할 수 있어요.",
+    )
+
+    # 개발 편의: 코드 되돌려주기
+    resp = {"ok": True}
+    if DEV_RETURN_CODES:
+        resp["dev_code"] = code
+        resp["expires_in_sec"] = CODE_TTL_MIN * 60
+    return resp
+
+
+
+@app.put("/auth/password-set")
+def password_set(payload: Dict[str, Any] = Body(...)):
+    user_id = (payload.get("id") or "").strip()
+    email   = (payload.get("email") or "").strip()
+    code    = (payload.get("code") or "").strip()
+    new_pw  = (payload.get("new_password") or "").strip()
+    if not user_id or not email or not code or not new_pw:
+        raise HTTPException(400, "id/email/code/new_password required")
+
+    key = _code_key("find_pw", email)
+    data = verification_store.get(key)
+    if not data:
+        raise HTTPException(400, "no pending verification")
+    if _utc_now() > data["expires_at"]:
+        verification_store.pop(key, None)
+        raise HTTPException(400, "code expired")
+    if code != data["code"] or data["user_id"] != user_id:
+        raise HTTPException(400, "invalid code")
+
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE user_info SET password=%s WHERE id=%s AND email=%s", (new_pw, user_id, email))
+    verification_store.pop(key, None)
+    return {"ok": True}
+
 
 # ── Ingredient 검색 ──────────────────────────
 @app.get("/ingredients/search")
