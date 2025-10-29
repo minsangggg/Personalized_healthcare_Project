@@ -15,7 +15,9 @@ from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from recommend_core import recommend_json as recommend_json_llm
 
-import jwt
+from jose import jwt, JWTError
+from jose.exceptions import ExpiredSignatureError
+from datetime import timezone
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
@@ -23,34 +25,59 @@ JWT_ALG = os.getenv("JWT_ALG", "HS256")
 ACCESS_MIN = int(os.getenv("ACCESS_MIN", "30"))
 REFRESH_DAYS = int(os.getenv("REFRESH_DAYS", "7"))
 
+def _utc_now():
+    return datetime.now(timezone.utc)
+
 def create_access_refresh(sub: str) -> tuple[str, str]:
-    now = datetime.utcnow()
-    access = jwt.encode({"sub": sub, "exp": now + timedelta(minutes=ACCESS_MIN)}, JWT_SECRET, algorithm=JWT_ALG)
-    refresh = jwt.encode({"sub": sub, "exp": now + timedelta(days=REFRESH_DAYS)}, JWT_SECRET, algorithm=JWT_ALG)
+    now = _utc_now()
+    access = jwt.encode(
+        {"sub": sub, "iat": int(now.timestamp()), "exp": int((now + timedelta(minutes=ACCESS_MIN)).timestamp())},
+        JWT_SECRET, algorithm=JWT_ALG
+    )
+    refresh = jwt.encode(
+        {"sub": sub, "iat": int(now.timestamp()), "exp": int((now + timedelta(days=REFRESH_DAYS)).timestamp())},
+        JWT_SECRET, algorithm=JWT_ALG
+    )
     return access, refresh
 
 bearer = HTTPBearer(auto_error=False)
 
-def get_current_user(cred: HTTPAuthorizationCredentials = Depends(bearer)) -> str:
-    if not cred:
+def get_current_user(request: Request, _=Depends(bearer)) -> str:
+    auth = request.headers.get("Authorization", "").strip()
+    if not auth:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = cred.credentials
+
+    token = auth
+    if token.lower().startswith("bearer "):
+        token = token.split(None, 1)[1].strip()
+        if token.lower().startswith("bearer "):
+            token = token.split(None, 1)[1].strip()
+
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-        return payload["sub"]  # user_id
-    except jwt.ExpiredSignatureError:
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(status_code=401, detail="Invalid payload")
+        return str(sub)
+    except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
 
 def _hash(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
 
 def issue_tokens(sub: str) -> tuple[str, str, str]:
-    # access(jwt), refresh(jwt), refresh_jti(고유키)
     jti = secrets.token_urlsafe(24)
-    access = jwt.encode({"sub": sub, "exp": datetime.utcnow()+timedelta(minutes=ACCESS_MIN)}, JWT_SECRET, algorithm=JWT_ALG)
-    refresh = jwt.encode({"sub": sub, "jti": jti, "exp": datetime.utcnow()+timedelta(days=REFRESH_DAYS)}, JWT_SECRET, algorithm=JWT_ALG)
+    now = _utc_now()
+    access = jwt.encode(
+        {"sub": sub, "iat": int(now.timestamp()), "exp": int((now + timedelta(minutes=ACCESS_MIN)).timestamp())},
+        JWT_SECRET, algorithm=JWT_ALG
+    )
+    refresh = jwt.encode(
+        {"sub": sub, "jti": jti, "iat": int(now.timestamp()), "exp": int((now + timedelta(days=REFRESH_DAYS)).timestamp())},
+        JWT_SECRET, algorithm=JWT_ALG
+    )
     return access, refresh, jti
 
 def save_refresh_jti(user_id: str, jti: str, exp: datetime, ua: str|None=None):
@@ -142,22 +169,56 @@ def auth_login(b: AuthLoginIn, request: Request, response: Response):
             LIMIT 1
         """, (b.id,))
         row = cur.fetchone()
-        # ※ 현재는 평문 비교. 운영 시 bcrypt 등으로 교체 권장.
         if not row or row["password"] != b.password:
             raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
 
         access, refresh, jti = issue_tokens(row["user_id"])
-        # DB 저장
         exp = datetime.utcnow() + timedelta(days=REFRESH_DAYS)
         save_refresh_jti(row["user_id"], jti, exp, request.headers.get("user-agent"))
 
-        # 쿠키로 refresh 전달
         response.set_cookie(
             key="refresh", value=refresh,
-            httponly=True, secure=False,  # prod에선 True (https)
+            httponly=True, secure=False,
             samesite="lax", path="/auth/refresh", max_age=REFRESH_DAYS*24*3600
         )
         return {"accessToken": access, "user": {"user_id": row["user_id"], "user_name": row["user_name"]}}
+
+# ── Auth: signup ─────────────────────────────
+@app.post("/auth/signup")
+def auth_signup(b: AuthSignupIn, request: Request, response: Response):
+    # 필수값 체크
+    if not b.id or not b.password:
+        raise HTTPException(400, "id/password required")
+
+    with get_conn() as conn, conn.cursor() as cur:
+        # 아이디 중복 확인
+        cur.execute("SELECT id FROM user_info WHERE id=%s LIMIT 1", (b.id,))
+        if cur.fetchone():
+            raise HTTPException(409, "user exists")
+
+        # DB 컬럼명은 스키마에 맞춰 수정
+        cur.execute("""
+            INSERT INTO user_info
+              (id, user_name, gender, email, date_of_birth, password, goal, cooking_level)
+            VALUES
+              (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            b.id, b.user_name, b.gender, b.email,
+            (b.date_of_birth or "1999-12-31"),
+            b.password, b.goal, b.cooking_level
+        ))
+
+    # 가입 직후 바로 로그인처럼 토큰 발급
+    access, refresh, jti = issue_tokens(b.id)
+    exp = datetime.utcnow() + timedelta(days=REFRESH_DAYS)
+    save_refresh_jti(b.id, jti, exp, request.headers.get("user-agent"))
+
+    response.set_cookie(
+        key="refresh", value=refresh,
+        httponly=True, secure=False, samesite="lax",
+        path="/auth/refresh", max_age=REFRESH_DAYS*24*3600
+    )
+    return {"accessToken": access, "user": {"user_id": b.id, "user_name": b.user_name}}
 
 @app.post("/auth/refresh")
 def auth_refresh(response: Response, refresh: Optional[str] = Cookie(default=None)):
@@ -168,7 +229,6 @@ def auth_refresh(response: Response, refresh: Optional[str] = Cookie(default=Non
         sub = payload["sub"]; jti = payload.get("jti")
         if not jti: raise HTTPException(401, "Invalid refresh")
 
-        # DB 검증: 존재 & not revoked & 유효기한
         with get_conn() as conn, conn.cursor() as cur:
             cur.execute("SELECT id, revoked, expires_at FROM user_refresh_token WHERE user_id=%s AND jti_hash=%s",
                         (sub, _hash(jti)))
@@ -176,10 +236,8 @@ def auth_refresh(response: Response, refresh: Optional[str] = Cookie(default=Non
             if not row or row["revoked"] or row["expires_at"] < datetime.utcnow():
                 raise HTTPException(401, "Refresh invalid")
 
-            # (선택) 재사용 방지: 옛 토큰 revoke
             cur.execute("UPDATE user_refresh_token SET revoked=1 WHERE id=%s", (row["id"],))
 
-        # 새 토큰 발급 + 새 jti 저장 + 새 쿠키
         access, new_refresh, new_jti = issue_tokens(sub)
         save_refresh_jti(sub, new_jti, datetime.utcnow()+timedelta(days=REFRESH_DAYS))
         response.set_cookie(
@@ -195,9 +253,7 @@ def auth_refresh(response: Response, refresh: Optional[str] = Cookie(default=Non
 
 @app.post("/auth/logout")
 def auth_logout(response: Response, refresh: Optional[str] = Cookie(default=None)):
-    # 쿠키 비우기
     response.delete_cookie(key="refresh", path="/auth/refresh")
-    # (선택) 현재 쿠키의 refresh를 파싱해 해당 jti revoke 처리
     if refresh:
         try:
             payload = jwt.decode(refresh, JWT_SECRET, algorithms=[JWT_ALG])
@@ -246,7 +302,6 @@ def me_ingredients_get(current_user: str = Depends(get_current_user)):
 @app.post("/me/ingredients")
 def me_ingredients_post(b: SaveFridgeIn, current_user: str = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
-        # purgeMissing: 전달되지 않은 재료 삭제
         if b.purgeMissing:
             names_payload = [it.name + (f"({it.unit})" if it.unit else "") for it in b.items]
             if names_payload:
@@ -257,7 +312,6 @@ def me_ingredients_post(b: SaveFridgeIn, current_user: str = Depends(get_current
                 """, (current_user, *names_payload))
             else:
                 cur.execute("DELETE FROM fridge_item WHERE id=%s", (current_user,))
-        # upsert
         for it in b.items:
             nm = it.name + (f"({it.unit})" if it.unit else "")
             q = int(it.quantity)
@@ -303,7 +357,6 @@ def _fallback_recipes(n: int = 3) -> List[Dict[str, Any]]:
 def me_recommendations(current_user: str = Depends(get_current_user)):
     uid = current_user
 
-    # 1) LLM 코어 호출 (타임아웃 8초)
     data: Any = None
     try:
         with ThreadPoolExecutor(max_workers=1) as ex:
@@ -312,7 +365,6 @@ def me_recommendations(current_user: str = Depends(get_current_user)):
     except (FuturesTimeout, Exception):
         data = None
 
-    # 2) 스키마 정규화
     if isinstance(data, list):
         items = data
     else:
@@ -324,7 +376,6 @@ def me_recommendations(current_user: str = Depends(get_current_user)):
     if not items:
         items = _fallback_recipes(3)
 
-    # 3) 추천 기록
     try:
         with get_conn() as conn, conn.cursor() as cur:
             for r in items:
@@ -337,7 +388,6 @@ def me_recommendations(current_user: str = Depends(get_current_user)):
     except Exception:
         pass
 
-    # 4) FE 카드 배열로 반환
     out = []
     for r in items:
         rid = r.get("recipe_id") or r.get("id")
