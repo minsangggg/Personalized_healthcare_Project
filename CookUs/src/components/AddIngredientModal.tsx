@@ -42,13 +42,11 @@ export default function AddIngredientModal({ onClose }: Props) {
     return () => { cancel = true }
   }, [q])
 
-  // 화면 표시용
   const pickedList: Ingredient[] = useMemo(
     () => Object.entries(picked).map(([name, quantity]) => ({ name, quantity })),
     [picked]
   )
 
-  // 수량 조작
   const inc = (name: string, d = 1) =>
     setPicked(p => {
       const n = Math.max(1, (p[name] ?? 0) + d)
@@ -77,7 +75,7 @@ export default function AddIngredientModal({ onClose }: Props) {
     <div className="modal-backdrop" onClick={() => onClose(false)}>
       <div className="modal card" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={() => onClose(false)}>×</button>
-        <h2>재료 관리</h2>
+        <h2>[재료 관리]</h2>
 
         {/* 검색 */}
         <div className="form" style={{ marginTop: 8 }}>
@@ -119,7 +117,7 @@ export default function AddIngredientModal({ onClose }: Props) {
           <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
             {pickedList.map(it => (
               <div key={it.name} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ minWidth: 120 }}>{it.name}</div>
+                <div style={{ minWidth: 100 }}>{it.name}</div>
                 <button className="btn secondary" onClick={() => inc(it.name, -1)}>-</button>
                 <input
                   type="number"
@@ -136,7 +134,7 @@ export default function AddIngredientModal({ onClose }: Props) {
         )}
 
         {/* 액션 */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, marginLeft:130 }}>
           <button className="btn" onClick={save}>저장</button>
           <button className="btn secondary" onClick={() => onClose(false)}>취소</button>
         </div>
