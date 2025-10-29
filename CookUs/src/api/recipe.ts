@@ -57,4 +57,10 @@ export const recipeAPI = {
     const { data } = await api.get('/recipes/selected')
     return data
   },
+
+  async getRecipe(id: number): Promise<Recipe> {
+    const { data } = await api.get(`/recipes/${id}`, { withCredentials: true })
+    const raw = data?.recipe ?? data
+    return normalize(raw)
+  },
 }

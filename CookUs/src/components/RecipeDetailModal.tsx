@@ -1,9 +1,9 @@
 import { createPortal } from 'react-dom'
-import api from '../api/axios'              // ✅ default import로 통일
+import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
 
-type Props = { recipe: Recipe; onClose: () => void }
+type Props = { recipe: Recipe; onClose: () => void; showSelect?: boolean }
 
 function FramePortal({ children }: { children: React.ReactNode }) {
   const host = document.querySelector('.app-frame')
@@ -11,7 +11,7 @@ function FramePortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, host)
 }
 
-export default function RecipeDetailModal({ recipe, onClose }: Props){
+export default function RecipeDetailModal({ recipe, onClose, showSelect }: Props){
   const selectRecipe = async () => {
     await api.post('/me/selected-recipe', { recipe_id: recipe.id })
     alert('선택되었습니다. 캘린더에 기록돼요!')
@@ -59,7 +59,9 @@ export default function RecipeDetailModal({ recipe, onClose }: Props){
 
           <div className="rec-foot">
             <button className="btn ghost" onClick={onClose}>닫기</button>
-            <button className="btn primary" onClick={selectRecipe}>이 레시피 할래요</button>
+            {showSelect && (
+              <button className="btn primary" onClick={selectRecipe}>이 레시피 할래요</button>
+            )}
           </div>
         </div>
       </div>
