@@ -7,11 +7,12 @@ type Props = {
   isLoggedIn: boolean
   user: User | null
   onLoginClick: () => void
+  onSignupClick?: () => void
   onLogout: () => void
 }
 
 export default function Navigation({
-  current, onChange, isLoggedIn, user, onLoginClick, onLogout,
+  current, onChange, isLoggedIn, user, onLoginClick, onSignupClick, onLogout,
 }: Props) {
   return (
     <header className="app-header">
@@ -22,13 +23,18 @@ export default function Navigation({
           <span className="brand-text">COOKUS</span>
         </div>
         <div className="user-area">
-          {isLoggedIn ? (
-            <>
-              <span className="username">{user?.user_name ?? '사용자'}</span>
-              <button className="btn primary" onClick={onLogout}>로그아웃</button>
-            </>
+          {!isLoggedIn ? (
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="btn ghost" onClick={onLoginClick}>로그인</button>
+              {onSignupClick && (
+                <button className="btn" onClick={onSignupClick}>회원가입</button>
+              )}
+            </div>
           ) : (
-            <button className="btn primary" onClick={onLoginClick}>로그인</button>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <span>{user?.user_name}님</span>
+              <button className="btn ghost" onClick={onLogout}>로그아웃</button>
+            </div>
           )}
         </div>
       </div>
