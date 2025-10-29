@@ -26,25 +26,19 @@ export default function RecipeCard({ recipe, onDetail }: Props){
   )
 }
 
-/** 상위 3개 재료 추출: dict -> key 순서, array -> 앞에서 3개, string -> 구분자 기준 */
 function top3Ingredients(raw: unknown): string[] {
-  // 이미 배열
   if (Array.isArray(raw)) {
     return raw.map(String).map(clean).filter(Boolean).slice(0, 3)
   }
 
-  // 문자열(JSON일 수도, 그냥 나열일 수도)
   if (typeof raw === 'string') {
     const s = raw.trim()
-    // JSON 형태면 파싱 시도
     if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
       try { return top3Ingredients(JSON.parse(s)) } catch {/* fallthrough */}
     }
-    // 나열 문자열: 쉼표/점/개행 등 구분
     return s.split(/[,·\n]+/).map(clean).filter(Boolean).slice(0, 3)
   }
 
-  // 객체(dict)면 key 기준(값이 있으면 양 옆 공백 제거해서 붙여줌)
   if (raw && typeof raw === 'object') {
     return Object.entries(raw as Record<string, unknown>)
       .map(([k, v]) => {

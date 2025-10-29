@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { recipeAPI, type SelectedRecipesResponse } from '../api/recipe'
+import RecipeDetailModal from '../components/RecipeDetailModal'
+import type { Recipe } from '../api/recipe'
 import './Calendar.css'
 
 type CalendarProps = { isLoggedIn: boolean }
@@ -28,7 +30,7 @@ function firstDayOfMonth(d: Date) {
 function lastDayOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0)
 }
-// 월요일 시작 그리드(총 42칸)
+
 function getCalendarGrid(base: Date) {
   const first = firstDayOfMonth(base)
   const last = lastDayOfMonth(base)
@@ -36,17 +38,14 @@ function getCalendarGrid(base: Date) {
   const daysInMonth = last.getDate()
 
   const cells: Date[] = []
-  // 앞 패딩
   for (let i = 0; i < firstWeekdayMonStart; i++) {
     const d = new Date(first)
     d.setDate(first.getDate() - (firstWeekdayMonStart - i))
     cells.push(d)
   }
-  // 해당 월
   for (let i = 1; i <= daysInMonth; i++) {
     cells.push(new Date(base.getFullYear(), base.getMonth(), i))
   }
-  // 뒤 패딩
   while (cells.length < 42) {
     const d = new Date(cells[cells.length - 1])
     d.setDate(d.getDate() + 1)
@@ -60,7 +59,37 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 현재 달/선택 날짜
+  const [detail, setDetail] = useState<Recipe | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  const refetch = async () => {
+    setLoading(true); setError(null)
+    try {
+      const res = await recipeAPI.getSelected()
+      setData(res)
+    } catch (e) {
+      console.error('[Calendar] getSelected failed:', e)
+      setError('기록을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const openDetail = async (recipeId: number) => {
+    setDetailLoading(true)
+    try {
+      const r = await recipeAPI.getRecipe(recipeId)
+      setDetail(r)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDetail = async () => {
+    setDetail(null)
+    await refetch()
+  }
+
   const [month, setMonth] = useState(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -86,7 +115,6 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
     return () => { alive = false }
   }, [isLoggedIn])
 
-  // 날짜별 그룹
   const monthBuckets = useMemo(() => {
     const map = new Map<number, Row[]>()
     const yy = month.getFullYear()
@@ -94,7 +122,7 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
     for (const r of data?.recipes ?? []) {
       const d = toLocalDate(r.selected_date)
       if (!d) continue
-      if (d.getFullYear() !== yy || d.getMonth() !== mm) continue  // ← 현재 달만
+      if (d.getFullYear() !== yy || d.getMonth() !== mm) continue
       const day = d.getDate()
       const arr = map.get(day) ?? []
       arr.push(r)
@@ -108,7 +136,6 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
     if (!selectedDay) return []
     const d = toLocalDate(selectedDay)
     if (!d) return []
-    // selectedDay가 현재 month와 다르면 빈 배열
     if (d.getFullYear() !== month.getFullYear() || d.getMonth() !== month.getMonth()) return []
     return monthBuckets.get(d.getDate()) ?? []
   }, [selectedDay, month, monthBuckets])
@@ -197,10 +224,9 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
                           {r.difficulty ?? '—'} · {r.cooking_time ?? '—'}분
                         </div>
                         <div className="actions">
-                          {/* 안전 내비게이션: 훅 없이 이동 */}
-                          <a className="btn sm" href={`/recipes/${r.recipe_id}`}>
+                          <button className="btn sm" onClick={() => openDetail(r.recipe_id)}>
                             자세히 보기
-                          </a>
+                          </button>
                         </div>
                       </li>
                     ))}
@@ -215,6 +241,15 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
           </>
         )}
       </div>
+
+      {detailLoading && <div className="muted">상세 불러오는 중…</div>}
+      {detail && (
+        <RecipeDetailModal
+          recipe={detail}
+          onClose={closeDetail}
+          showSelect={false}
+        />
+      )}
     </section>
   )
 }

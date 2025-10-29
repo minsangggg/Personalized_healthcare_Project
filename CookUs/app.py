@@ -389,7 +389,6 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
           r.cooking_time,
           r.level_nm AS difficulty,
 
-          /* 날짜만 추출(형식 혼재 대응) */
           CASE
             WHEN sr.selected_date REGEXP '^[0-9]{4}/'
               THEN DATE(STR_TO_DATE(sr.selected_date, '%%Y/%%m/%%d %%H:%%i:%%s'))
@@ -400,7 +399,6 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
             ELSE NULL
           END AS selected_date_only,
 
-          /* 정렬 키(원본이 VARCHAR여도 정렬 안정) */
           CASE
             WHEN sr.selected_date REGEXP '^[0-9]{4}/'
               THEN STR_TO_DATE(sr.selected_date, '%%Y/%%m/%%d %%H:%%i:%%s')
@@ -420,9 +418,7 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
         cur.execute(sql, (current_user,))
         rows = cur.fetchall() or []
 
-    # 날짜는 항상 'YYYY-MM-DD'로 내려주기
     def to_yyyy_mm_dd(x):
-      # PyMySQL DictCursor면 date/datetime이면 isoformat 있음
       try:
           return x.isoformat()
       except Exception:
@@ -444,3 +440,27 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
             for r in rows
         ],
     }
+    
+# 레시피 상세 조회
+@app.get("/recipes/{recipe_id}")
+def get_recipe(recipe_id: int, current_user: str = Depends(get_current_user)):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+            r.recipe_id   AS id,
+            r.recipe_nm_ko AS title,
+            r.cooking_time AS cook_time,
+            r.level_nm     AS difficulty,
+            r.ingredient_full AS ingredients_text,
+            r.step_text AS steps_text,
+            NULL AS step_tip
+            FROM recipe r
+            WHERE r.recipe_id = %s
+            """,
+            (recipe_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+    return {"recipe": row}
