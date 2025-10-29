@@ -213,25 +213,23 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
             {selectedDay && (
               <div className="day-detail">
                 <div className="day-head">{selectedDay}의 레시피</div>
-                {selectedRecipes.length === 0 ? (
-                  <div className="muted small">이 날의 기록이 없어요.</div>
-                ) : (
-                  <ul className="list">
-                    {selectedRecipes.map((r) => (
-                      <li key={r.selected_id} className="row">
-                        <div className="title clamp-1">{r.title}</div>
-                        <div className="meta">
-                          {r.difficulty ?? '—'} · {r.cooking_time ?? '—'}분
-                        </div>
-                        <div className="actions">
-                          <button className="btn sm" onClick={() => openDetail(r.recipe_id)}>
-                            자세히 보기
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="day-body">
+                  {selectedRecipes.length === 0 ? (
+                    <div className="muted small">이 날의 기록이 없어요.</div>
+                  ) : (
+                    <ul className="list">
+                      {selectedRecipes.map((r) => (
+                        <li key={r.selected_id} className="row">
+                          <div className="title clamp-1">{r.title}</div>
+                          <div className="meta">{r.difficulty ?? '—'} · {r.cooking_time ?? '—'}분</div>
+                          <div className="actions">
+                            <button className="btn sm" onClick={() => openDetail(r.recipe_id)}>자세히 보기</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
 

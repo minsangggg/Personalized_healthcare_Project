@@ -11,7 +11,7 @@ function FramePortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, host)
 }
 
-export default function RecipeDetailModal({ recipe, onClose, showSelect }: Props){
+export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: Props){
   const selectRecipe = async () => {
     await api.post('/me/selected-recipe', { recipe_id: recipe.id })
     alert('선택되었습니다. 캘린더에 기록돼요!')
