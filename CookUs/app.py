@@ -4,6 +4,7 @@ from __future__ import annotations
 import os, re, secrets, hashlib
 import random
 import string
+import json
 from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Literal
@@ -22,10 +23,6 @@ from jose.exceptions import ExpiredSignatureError
 from datetime import timezone
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.exceptions import RequestValidationError
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
@@ -628,6 +625,7 @@ def _fallback_recipes(n: int = 3) -> List[Dict[str, Any]]:
         """, (n,))
         return cur.fetchall() or []
 
+
 @app.get("/me/recommendations")
 def me_recommendations(current_user: str = Depends(get_current_user)):
     uid = current_user
@@ -640,6 +638,7 @@ def me_recommendations(current_user: str = Depends(get_current_user)):
     except (FuturesTimeout, Exception):
         data = None
 
+    # 후보 추출
     if isinstance(data, list):
         items = data
     else:
@@ -651,29 +650,61 @@ def me_recommendations(current_user: str = Depends(get_current_user)):
     if not items:
         items = _fallback_recipes(3)
 
+    # === DB 적재(업서트 X): 존재 여부 선조회 → 없을 때만 INSERT ===
     try:
         with get_conn() as conn, conn.cursor() as cur:
             for r in items:
                 rid = r.get("recipe_id") or r.get("id")
-                if rid is not None:
+                if rid is None:
+                    continue
+                rid = int(rid)
+
+                name  = (r.get("recipe_nm_ko") or r.get("title") or "").strip()
+                steps = (r.get("step_text") or r.get("steps_text") or "").strip()
+
+                raw_ing = r.get("ingredient_full") or r.get("ingredients_text") or {}
+                if isinstance(raw_ing, str):
+                    try:
+                        ing_obj = json.loads(raw_ing)
+                    except Exception:
+                        ing_obj = {"_text": raw_ing.strip()}
+                else:
+                    ing_obj = raw_ing or {}
+
+                # 중복 체크
+                cur.execute(
+                    "SELECT 1 FROM recommend_recipe WHERE id=%s AND recipe_id=%s LIMIT 1",
+                    (uid, rid),
+                )
+                exists = cur.fetchone()
+
+                if not exists:
                     cur.execute(
-                        "INSERT INTO recommend_recipe (id, recipe_id, recommend_date) VALUES (%s,%s,NOW())",
-                        (uid, int(rid))
+                        """
+                        INSERT INTO recommend_recipe
+                          (id, recipe_nm_ko, ingredient_full, step_text, recipe_id, recommend_date)
+                        VALUES
+                          (%s, %s, %s, %s, %s, NOW())
+                        """,
+                        (uid, name, json.dumps(ing_obj, ensure_ascii=False), steps, rid),
                     )
+            conn.commit()
     except Exception:
         pass
 
     out = []
     for r in items:
         rid = r.get("recipe_id") or r.get("id")
-        if rid is None: continue
+        if rid is None:
+            continue
+
         out.append({
             "id": int(rid),
-            "title": r.get("title") or r.get("recipe_nm_ko") or "",
-            "cook_time": r.get("cook_time") or r.get("cooking_time"),
-            "difficulty": r.get("difficulty") or r.get("level_nm"),
-            "ingredients_text": r.get("ingredients_text") or "",
-            "steps_text": r.get("steps_text") or "",
+            "title": (r.get("recipe_nm_ko") or r.get("title") or ""),
+            "cook_time": (r.get("cook_time") or r.get("cooking_time")),
+            "level_nm": (r.get("level_nm") or r.get("difficulty")),
+            "ingredient_full": (r.get("ingredient_full") or r.get("ingredients_text") or ""),
+            "step_text": (r.get("step_text") or r.get("steps_text") or ""),
             "step_tip": r.get("step_tip") or "",
         })
     return out
@@ -766,6 +797,41 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
         ],
     }
     
+@app.delete("/me/selected-recipe/{selected_id}")
+def delete_selected_recipe(selected_id: int, current_user: str = Depends(get_current_user)):
+    uid = current_user
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT 1
+            FROM selected_recipe
+            WHERE selected_id=%s AND id=%s
+            LIMIT 1
+        """, (selected_id, uid))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="selected record not found")
+
+        cur.execute("""
+            DELETE FROM selected_recipe
+            WHERE selected_id=%s AND id=%s
+            LIMIT 1
+        """, (selected_id, uid))
+        conn.commit()
+    return Response(status_code=204)   
+    
+@app.get("/me/selected-recipe/status")
+def selected_status(recipe_id: int, current_user: str = Depends(get_current_user)):
+    uid = current_user
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("""
+          SELECT selected_id
+          FROM selected_recipe
+          WHERE id=%s AND recipe_id=%s
+          LIMIT 1
+        """, (uid, recipe_id))
+        row = cur.fetchone()
+    return {"selected": bool(row), "selected_id": (row or {}).get("selected_id")}   
+    
+
 # 레시피 상세 조회
 @app.get("/recipes/{recipe_id}")
 def get_recipe(recipe_id: int, current_user: str = Depends(get_current_user)):
