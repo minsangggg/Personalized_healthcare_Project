@@ -1,9 +1,14 @@
 // src/components/ResetPasswordDialog.tsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ModalFrame from './ModalFrame'
 import { authAPI } from '../api/auth'
 
-export default function ResetPasswordDialog({ onClose }: { onClose: () => void }) {
+type Props = {
+  onClose: () => void;
+  onToLogin?: (prefillId?: string, toast?: string) => void; // ★ 추가
+};
+
+export default function ResetPasswordDialog({ onClose, onToLogin }: Props) {
   const [step, setStep] = useState<'send'|'verify'>('send')
   const [id, setId] = useState('')
   const [email, setEmail] = useState('')
@@ -14,6 +19,10 @@ export default function ResetPasswordDialog({ onClose }: { onClose: () => void }
   const [error, setError] = useState<string | null>(null)
   const [okMsg, setOkMsg] = useState<string | null>(null)
   const [devCode, setDevCode] = useState<string | undefined>(undefined)
+
+  // 타이머 정리용
+  const timerRef = useRef<number | null>(null)
+  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current) }, [])
 
   const send = async () => {
     setError(null); setLoading(true)
@@ -30,7 +39,7 @@ export default function ResetPasswordDialog({ onClose }: { onClose: () => void }
     setError(null); setOkMsg(null); setLoading(true)
     try {
       await authAPI.setNewPassword(id.trim(), email.trim(), code.trim(), pw.trim())
-      setOkMsg('비밀번호가 변경되었습니다. 새 비밀번호로 로그인하세요.')
+      setOkMsg('비밀번호가 변경되었습니다. 다시 로그인하세요.');
     } catch (e:any) {
       setError(e?.response?.data?.detail || '비밀번호 변경에 실패했어요.')
     } finally { setLoading(false) }
@@ -60,7 +69,7 @@ export default function ResetPasswordDialog({ onClose }: { onClose: () => void }
               {loading ? '발송 중…' : '인증코드 받기'}
             </button>
           </div>
-          {devCode && <p className="hint">개발코드: {devCode}</p>}
+          {devCode && <p className="hint"></p>}
         </>
       ) : (
         <>
@@ -78,11 +87,33 @@ export default function ResetPasswordDialog({ onClose }: { onClose: () => void }
           </div>
 
           <div className="dialog-actions">
-            <button className="btn ghost" onClick={()=>setStep('send')}>뒤로</button>
-            <button className="btn primary" disabled={loading || !id.trim() || !email.trim() || !code.trim() || !pw.trim()} onClick={reset}>
-              {loading ? '변경 중…' : '변경하기'}
-            </button>
+            {okMsg ? (
+              <>
+                <button className="btn ghost" onClick={onClose}>닫기</button>
+                <button
+                  className="btn primary"
+                  onClick={() => {
+                    onToLogin?.(id.trim(), okMsg || '비밀번호가 변경되었습니다.');
+                    onClose();
+                  }}
+                >
+                  로그인하러 가기
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn ghost" onClick={()=>setStep('send')}>뒤로</button>
+                <button
+                  className="btn primary"
+                  disabled={loading || !id.trim() || !email.trim() || !code.trim() || !pw.trim()}
+                  onClick={reset}
+                >
+                  {loading ? '변경 중…' : '변경하기'}
+                </button>
+              </>
+            )}
           </div>
+
         </>
       )}
     </ModalFrame>

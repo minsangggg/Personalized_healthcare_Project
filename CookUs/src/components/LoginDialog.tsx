@@ -29,7 +29,7 @@ export default function LoginDialog({
       onSuccess(me);
       onClose();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || '로그인에 실패했어요.');
+      setError(e?.response?.data?.detail || '아이디 또는 비밀번호가 틀립니다.');
     } finally { setLoading(false); }
   };
 
@@ -65,7 +65,15 @@ export default function LoginDialog({
       </ModalFrame>
       {/* 하위 모달들 (프레임 내부 포털을 쓰는 구조라면 그 위치를 사용) */}
       {showFindId && <FindIdDialog onClose={()=>setShowFindId(false)} />}
-      {showResetPw && <ResetPasswordDialog onClose={()=>setShowResetPw(false)} />}
+      {showResetPw && (
+        <ResetPasswordDialog
+          onClose={() => setShowResetPw(false)}
+          onToLogin={(prefillId) => {
+            setShowResetPw(false);
+            if (prefillId) setId(prefillId);
+          }}
+        />
+      )}
     </>
   );
 }
