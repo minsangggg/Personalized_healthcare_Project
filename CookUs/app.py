@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Literal
 import pandas as pd
 import pymysql
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, Depends, Response, Request, Cookie, Body, status
+from fastapi import FastAPI, HTTPException, Query, Depends, Response, Request, Cookie, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
@@ -22,6 +22,10 @@ from jose.exceptions import ExpiredSignatureError
 from datetime import timezone
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import RequestValidationError
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
@@ -441,7 +445,7 @@ async def find_id_send_code(payload: Dict[str, Any] = Body(...)):
 
 
 
-# ✅ 아이디 찾기: 코드 검증
+# 아이디 찾기: 코드 검증
 @app.post("/auth/find-id/verify")
 def find_id_verify(payload: Dict[str, Any] = Body(...)):
     """
@@ -785,3 +789,5 @@ def get_recipe(recipe_id: int, current_user: str = Depends(get_current_user)):
         if not row:
             raise HTTPException(status_code=404, detail="Recipe not found")
     return {"recipe": row}
+
+
