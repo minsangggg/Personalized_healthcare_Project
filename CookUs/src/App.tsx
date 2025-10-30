@@ -74,7 +74,7 @@ export default function App() {
           )}
 
           {tab === 'dashboard' && (
-            <Dashboard />
+            <Dashboard isLoggedIn={isLoggedIn} onRequireLogin={requireLogin}/>
           )}
 
           {tab === 'mypage' && (
