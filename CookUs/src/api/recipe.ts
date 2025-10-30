@@ -3,12 +3,11 @@ import api from './axios'
 export type Recipe = {
   id: number
   title: string
-  cook_time?: number
-  difficulty?: string
-  ingredients_text?: string | string[]
-  steps_text?: string | string[]
-  step_tip?: string | string[]
-  image_url?: string
+  cook_time?: number | null
+  level_nm?: string | null
+  ingredient_full?: any
+  step_text?: any
+  step_tip?: any
 }
 
 export type SelectedRecipe = {
@@ -27,18 +26,15 @@ export type SelectedRecipesResponse = {
   recipes: SelectedRecipe[]
 }
 
-function normalize(r: any): Recipe {
-  return {
-    id: Number(r?.id ?? r?.recipe_id),
-    title: r?.title ?? r?.recipe_nm_ko ?? '',
-    cook_time: r?.cook_time ?? r?.cooking_time,
-    difficulty: r?.difficulty ?? r?.level_nm,
-    ingredients_text: r?.ingredients_text,
-    steps_text: r?.steps_text,
-    step_tip: r?.step_tip,
-    image_url: r?.image_url,
-  }
-}
+export const normalize = (rec: any): Recipe => ({
+  id: Number(rec.id ?? rec.recipe_id),
+  title: rec.title ?? rec.recipe_nm_ko ?? '',
+  cook_time: rec.cook_time ?? rec.cooking_time ?? null,
+  level_nm: rec.level_nm ?? rec.difficulty ?? null,
+  ingredient_full: rec.ingredient_full ?? rec.ingredients_text ?? rec.ingredients ?? null,
+  step_text: rec.step_text ?? rec.steps_text ?? null,
+  step_tip: rec.step_tip ?? rec.tips ?? null,
+})
 
 export const recipeAPI = {
   async recommendTop3(): Promise<Recipe[]> {
@@ -62,5 +58,9 @@ export const recipeAPI = {
     const { data } = await api.get(`/recipes/${id}`, { withCredentials: true })
     const raw = data?.recipe ?? data
     return normalize(raw)
+  },
+
+  async deleteSelected(selectedId: number): Promise<void> {
+    await api.delete(`/me/selected-recipe/${selectedId}`)
   },
 }
