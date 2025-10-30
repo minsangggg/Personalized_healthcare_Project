@@ -73,3 +73,15 @@
 .clamp-1{ line-clamp:1; -webkit-line-clamp:1; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
 .clamp-2{ line-clamp:2; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
 .clamp-3{ line-clamp:3; -webkit-line-clamp:3; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
+
+
+.rc-foot { display:flex; gap:8px; justify-content: flex-end; align-items:center; }
+.btn.danger.outline {
+  border: 1px solid #ef4444;
+  background: #fff;
+  color: #ef4444;
+  padding: 6px 10px;
+  line-height: 1;
+  border-radius: 8px;
+}
+.btn.danger.outline:disabled { opacity: .6; cursor: not-allowed; }

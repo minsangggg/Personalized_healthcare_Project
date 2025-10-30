@@ -63,3 +63,23 @@
 }
 .btn.primary{ background:#F39C3A; border-color:#F39C3A; color:#fff; }
 .btn.ghost{ background:#fff; }
+
+.inline-note {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+.inline-note.ok { border-color: #10b981; background: #ecfdf5; }
+.inline-note.warn { border-color: #f59e0b; background: #fffbeb; }
+.chip.ok {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}

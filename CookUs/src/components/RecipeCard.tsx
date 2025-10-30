@@ -1,10 +1,28 @@
 import type { Recipe } from '../api/recipe'
 import './RecipeCard.css'
+import { useState } from 'react'
 
-type Props = { recipe: Recipe; onDetail: () => void }
+type Props = {
+  recipe: Recipe
+  onDetail: () => void
+  onDelete?: () => Promise<void> | void // 옵션: 삭제 콜백이 있으면 X 버튼 노출
+}
 
-export default function RecipeCard({ recipe, onDetail }: Props){
-  const top3 = top3Ingredients((recipe as any).ingredients_text ?? (recipe as any).ingredient_ful)
+export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
+  const [deleting, setDeleting] = useState(false)
+  const top3 = top3Ingredients((recipe as any).ingredients_text ?? (recipe as any).ingredient_full)
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!onDelete) return
+    if (!confirm('이 항목을 삭제하시겠어요?')) return
+    try {
+      setDeleting(true)
+      await onDelete()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="rc-card">
@@ -12,6 +30,7 @@ export default function RecipeCard({ recipe, onDetail }: Props){
 
       <div className="rc-meta">
         {(recipe as any).difficulty && <span className="chip">{(recipe as any).difficulty}</span>}
+        {recipe.level_nm && <span className="chip">{recipe.level_nm}</span>}
         {typeof recipe.cook_time === 'number' && <span className="chip">{recipe.cook_time}분</span>}
       </div>
 
@@ -21,6 +40,17 @@ export default function RecipeCard({ recipe, onDetail }: Props){
 
       <div className="rc-foot">
         <button className="btn primary" onClick={onDetail}>자세히 보기</button>
+        {onDelete && (
+          <button
+            className="btn danger outline"
+            onClick={handleDelete}
+            disabled={deleting}
+            aria-label="삭제"
+            title="삭제"
+          >
+            {deleting ? '삭제 중…' : '×'}
+          </button>
+        )}
       </div>
     </div>
   )

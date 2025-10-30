@@ -4,14 +4,15 @@
 .my-card.center { display:grid; place-items:center; gap:10px; }
 
 /* --- Header row (avatar + name) --- */
-.row { display:flex; gap:12px; align-items:center; }
+.row { display:flex; gap:12px; align-items:center; background: #fdcc8c34;}
 .avatar{
   width:56px; height:56px; border-radius:50%;
   background:#ffe4b8; border:1px solid #e9c86f;
-  display:grid; place-items:center; font-weight:900; color:#6b3f23; font-size:22px;
+  display:grid; place-items:center; font-weight:900; color:#6b3f23; font-size:20px;
 }
-.info .name{ font-size:18px; font-weight:900; color:#5a3b2a; }
-.info .uid{ font-size:12px; color:#7b5a40; }
+
+.info .name{ font-size:20px; font-weight:700; color:#7a513a; }
+.info .uid{ font-size:14px; color:#7b5a40; }
 
 /* --- Notes & States --- */
 .note{ margin-top:8px; color:#5a3b2a; }
@@ -20,10 +21,10 @@
   color:#9b2f2f; padding:8px 10px; border-radius:10px;
 }
 
-.divider{ height:1px; background:#e9c86f; margin:12px 0; }
+.divider{ height:1px; background:#e9c86f; margin:20px 0; }
 
 /* --- Field list (label left / value+chip right) --- */
-.fields { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+.fields { display:flex; flex-direction:column; gap:15px; margin-top:10px; }
 
 .field{
   display:grid;
@@ -35,7 +36,7 @@
   padding:10px 12px;
 }
 .field-label{
-  font-size:12px; color:#7b4e2d; letter-spacing:.2px;
+  font-size:14px; color:#7b4e2d; letter-spacing:.2px;
 }
 .field-val{
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
@@ -43,8 +44,7 @@
 }
 
 /* --- Values --- */
-.value{ font-weight:500; color:#3b2a1d; line-height:1.2; }
-.value-strong{ font-weight:500; } /* 이메일만 더 강조 */
+.value{ font-weight:550; color:#855e41; line-height:1.2; }
 
 /* --- Chips --- */
 .chip{
@@ -53,16 +53,21 @@
   font-size:11px; font-weight:800; letter-spacing:.1px;
   color:#5a3b2a; background:#fff2d8; border:1px solid #e9c86f;
   box-shadow:0 3px 8px rgba(107,63,35,.05);
-  transform: translateY(-1px); /* baseline fine-tune */
+  transform: translateY(-1px);
 }
-.chip--tiny{ height:18px; padding:0 6px; font-size:10.5px; }
+.chip--tiny{ height:20px; padding:0 6px; font-size:11.5px; }
 .chip.ghost{ color:#1f6a55; background:#e7fbf3; border:1px solid #bfe8d9; } /* 성별 칩 */
 
-/* --- Actions --- */
 .actions{ display:flex; justify-content:center; margin-top:14px; }
 
-/* --- Responsive: stack label on top under narrow width --- */
 @media (max-width: 380px) {
   .field { grid-template-columns: 1fr; gap:6px; }
   .field-label { opacity:.9; }
+}
+
+.editbtn{
+  border:none; width: 340px;
+  background: #ecce95;
+  color: #ffffff;
+  padding:10px 14px; border-radius:12px; font-weight:700; font-size: 14px;cursor:pointer
 }
