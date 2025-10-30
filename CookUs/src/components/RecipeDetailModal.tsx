@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
@@ -12,30 +13,71 @@ function FramePortal({ children }: { children: React.ReactNode }) {
 }
 
 export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: Props){
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    const check = async () => {
+      try {
+        const { data } = await api.get('/me/selected-recipe/status', {
+          params: { recipe_id: recipe.id }
+        })
+        if (!alive) return
+        if (data?.selected) {
+          setSelected(true)
+          setNotice('이미 캘린더에 기록된 레시피예요.')
+        } else {
+          setSelected(false)
+          setNotice(null)
+        }
+      } catch {
+      }
+    }
+    check()
+    return () => { alive = false }
+  }, [recipe.id])
+
   const selectRecipe = async () => {
-    await api.post('/me/selected-recipe', { recipe_id: recipe.id })
-    alert('선택되었습니다. 캘린더에 기록돼요!')
-    onClose()
+    if (selected || selecting) return
+    try {
+      setSelecting(true)
+      await api.post('/me/selected-recipe', { recipe_id: recipe.id })
+      setSelected(true)
+      setNotice('캘린더에 기록했어요!')
+    } catch (e) {
+      setNotice('기록에 실패했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setSelecting(false)
+    }
   }
 
-  const steps = toLines((recipe as any).steps_text)
+  const steps = toLines((recipe as any).step_text)
   const tips  = toLines((recipe as any).step_tip)
-  const ings  = toArray((recipe as any).ingredients_text ?? (recipe as any).ingredient_ful)
+  const ings  = toArray((recipe as any).ingredients_text ?? (recipe as any).ingredient_full)
 
   return (
     <FramePortal>
       <div className="rec-overlay" onClick={onClose}>
         <div className="rec-modal" onClick={e=>e.stopPropagation()}>
           <div className="rec-head">
-            <h3>{recipe.title}</h3>
+            <h3>
+              {recipe.title}
+              {selected && <span className="chip ok">선택됨</span>}
+            </h3>
             <button className="rec-x" onClick={onClose}>×</button>
           </div>
+
+          {/* 인앱 안내 영역 */}
+          {notice && <div className={`inline-note ${selected ? 'ok' : 'warn'}`}>{notice}</div>}
 
           <div className="rec-sub">
             {recipe.cook_time && <span>조리시간: {recipe.cook_time}분</span>}
             {(recipe as any).difficulty && <span>난이도: {(recipe as any).difficulty}</span>}
           </div>
 
+          {/* 이하 기존 섹션들 그대로 */}
           {ings.length > 0 && (
             <section className="rec-sec">
               <h4>[필요 재료]</h4>
@@ -60,7 +102,13 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: 
           <div className="rec-foot">
             <button className="btn ghost" onClick={onClose}>닫기</button>
             {showSelect && (
-              <button className="btn primary" onClick={selectRecipe}>이 레시피 할래요</button>
+              <button
+                className="btn primary"
+                onClick={selectRecipe}
+                disabled={selecting || selected}
+              >
+                {selected ? '이미 캘린더에 있어요' : (selecting ? '기록 중…' : '이 레시피 할래요')}
+              </button>
             )}
           </div>
         </div>

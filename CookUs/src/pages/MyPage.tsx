@@ -104,7 +104,7 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
         </div>
 
         <div className="actions">
-          <button className="btn" onClick={() => setShowEdit(true)}>프로필 수정</button>
+          <button className="editbtn" onClick={() => setShowEdit(true)}>프로필 수정</button>
         </div>
       </div>
 

@@ -24,17 +24,13 @@ function toLocalDate(s?: string | null): Date | null {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
 }
 
-function firstDayOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-}
-function lastDayOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0)
-}
+function firstDayOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1) }
+function lastDayOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0) }
 
 function getCalendarGrid(base: Date) {
   const first = firstDayOfMonth(base)
   const last = lastDayOfMonth(base)
-  const firstWeekdayMonStart = ((first.getDay() + 6) % 7) // (월=0~일=6)
+  const firstWeekdayMonStart = ((first.getDay() + 6) % 7)
   const daysInMonth = last.getDate()
 
   const cells: Date[] = []
@@ -61,6 +57,9 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
 
   const [detail, setDetail] = useState<Recipe | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // 삭제 진행 중 표시(선택된 레코드 id)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   const refetch = async () => {
     setLoading(true); setError(null)
@@ -154,6 +153,23 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
     setSelectedDay(todayStr)
   }
 
+  // 선택 항목 삭제
+  const deleteSelected = async (r: Row) => {
+    if (!confirm('이 기록을 삭제할까요?')) return
+    try {
+      setDeletingId(r.selected_id)
+      await recipeAPI.deleteSelected(r.selected_id) // api/recipe.ts에 구현 필요
+      // 상세 모달이 해당 레시피를 보고 있었다면 닫기
+      if (detail?.id === r.recipe_id) setDetail(null)
+      await refetch()
+    } catch (e) {
+      console.error('[Calendar] deleteSelected failed:', e)
+      alert('삭제에 실패했습니다.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <section className="app-tab cal">
       <div className="card cal-card">
@@ -222,8 +238,19 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
                         <li key={r.selected_id} className="row">
                           <div className="title clamp-1">{r.title}</div>
                           <div className="meta">{r.difficulty ?? '—'} · {r.cooking_time ?? '—'}분</div>
-                          <div className="actions">
-                            <button className="btn sm" onClick={() => openDetail(r.recipe_id)}>자세히 보기</button>
+                          <div className="actions" style={{ display:'flex', gap:8 }}>
+                            <button className="btn sm" onClick={() => openDetail(r.recipe_id)}>
+                              자세히 보기
+                            </button>
+                            <button
+                              className="btn danger outline sm"
+                              onClick={() => deleteSelected(r)}
+                              disabled={deletingId === r.selected_id}
+                              aria-label="삭제"
+                              title="삭제"
+                            >
+                              {deletingId === r.selected_id ? '삭제 중…' : '×'}
+                            </button>
                           </div>
                         </li>
                       ))}
