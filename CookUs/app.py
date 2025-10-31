@@ -4,7 +4,6 @@ from __future__ import annotations
 import os, re, secrets, hashlib
 import random
 import string
-import json
 from pathlib import Path
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, Literal
@@ -15,13 +14,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Depends, Response, Request, Cookie, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
-from recommend_core import recommend_json as recommend_json_llm
+from fastapi.responses import JSONResponse
+from recommend_core import recommend_json
 
 from jose import jwt, JWTError
 from jose.exceptions import ExpiredSignatureError
 from datetime import timezone
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
@@ -609,105 +608,43 @@ def me_ingredients_post(b: SaveFridgeIn, current_user: str = Depends(get_current
                 """, (current_user, nm, q))
     return {"ok": True}
 
-# ── LLM 추천 + 안전 fallback ─────────────────
-def _fallback_recipes(n: int = 3) -> List[Dict[str, Any]]:
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("""
-            SELECT recipe_id,
-                   recipe_nm_ko AS title,
-                   cooking_time AS cook_time,
-                   level_nm     AS difficulty,
-                   ingredient_full AS ingredients_text,
-                   step_text    AS steps_text
-            FROM recipe
-            ORDER BY RAND()
-            LIMIT %s
-        """, (n,))
-        return cur.fetchall() or []
-
-
 @app.get("/me/recommendations")
-def me_recommendations(current_user: str = Depends(get_current_user)):
-    uid = current_user
-
-    data: Any = None
+def get_recommendations(
+    current_user: str = Depends(get_current_user),
+    limit: int = Query(
+        3,
+        ge=1,
+        le=5,
+        description="추천 레시피 개수 (기본 3개)",
+    ),
+):
     try:
-        with ThreadPoolExecutor(max_workers=1) as ex:
-            fut = ex.submit(recommend_json_llm, user_id=uid, limit=3, exclude_ids=None)
-            data = fut.result(timeout=8)
-    except (FuturesTimeout, Exception):
-        data = None
+        # 1) 추천 실행 및 DB 적재
+        _ = recommend_json(user_id=current_user, limit=limit)
 
-    # 후보 추출
-    if isinstance(data, list):
-        items = data
-    else:
-        items = (data or {}).get("recommended_db_candidates") \
-             or (data or {}).get("recommended") \
-             or []
-
-    items = (items or [])[:3]
-    if not items:
-        items = _fallback_recipes(3)
-
-    # === DB 적재(업서트 X): 존재 여부 선조회 → 없을 때만 INSERT ===
-    try:
+        # 2) 방금 적재된 레코드 기준으로 카드 데이터 반환 (DB 저장값과 동일)
         with get_conn() as conn, conn.cursor() as cur:
-            for r in items:
-                rid = r.get("recipe_id") or r.get("id")
-                if rid is None:
-                    continue
-                rid = int(rid)
-
-                name  = (r.get("recipe_nm_ko") or r.get("title") or "").strip()
-                steps = (r.get("step_text") or r.get("steps_text") or "").strip()
-
-                raw_ing = r.get("ingredient_full") or r.get("ingredients_text") or {}
-                if isinstance(raw_ing, str):
-                    try:
-                        ing_obj = json.loads(raw_ing)
-                    except Exception:
-                        ing_obj = {"_text": raw_ing.strip()}
-                else:
-                    ing_obj = raw_ing or {}
-
-                # 중복 체크
-                cur.execute(
-                    "SELECT 1 FROM recommend_recipe WHERE id=%s AND recipe_id=%s LIMIT 1",
-                    (uid, rid),
-                )
-                exists = cur.fetchone()
-
-                if not exists:
-                    cur.execute(
-                        """
-                        INSERT INTO recommend_recipe
-                          (id, recipe_nm_ko, ingredient_full, step_text, recipe_id, recommend_date)
-                        VALUES
-                          (%s, %s, %s, %s, %s, NOW())
-                        """,
-                        (uid, name, json.dumps(ing_obj, ensure_ascii=False), steps, rid),
-                    )
-            conn.commit()
-    except Exception:
-        pass
-
-    out = []
-    for r in items:
-        rid = r.get("recipe_id") or r.get("id")
-        if rid is None:
-            continue
-
-        out.append({
-            "id": int(rid),
-            "title": (r.get("recipe_nm_ko") or r.get("title") or ""),
-            "cook_time": (r.get("cook_time") or r.get("cooking_time")),
-            "level_nm": (r.get("level_nm") or r.get("difficulty")),
-            "ingredient_full": (r.get("ingredient_full") or r.get("ingredients_text") or ""),
-            "step_text": (r.get("step_text") or r.get("steps_text") or ""),
-            "step_tip": r.get("step_tip") or "",
-        })
-    return out
+            cur.execute(
+                """
+                SELECT
+                  rr.recipe_id,
+                  rr.recipe_nm_ko,
+                  r.cooking_time,
+                  r.level_nm,
+                  rr.ingredient_full,
+                  rr.step_text
+                FROM recommend_recipe rr
+                JOIN recipe r ON rr.recipe_id = r.recipe_id
+                WHERE rr.id = %s
+                ORDER BY rr.recommend_date DESC
+                LIMIT %s
+                """,
+                (current_user, limit),
+            )
+            rows = cur.fetchall() or []
+        return JSONResponse(content=rows, status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ── 선택 저장 / 조회 ─────────────────────────
 @app.post("/me/selected-recipe")
@@ -741,9 +678,9 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
           sr.selected_id,
           sr.recommend_id,
           rr.recipe_id,
-          r.recipe_nm_ko AS title,
+          r.recipe_nm_ko,
           r.cooking_time,
-          r.level_nm AS difficulty,
+          r.level_nm,
 
           CASE
             WHEN sr.selected_date REGEXP '^[0-9]{4}/'
@@ -788,9 +725,9 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
                 "selected_id": r["selected_id"],
                 "recommend_id": r["recommend_id"],
                 "recipe_id": r["recipe_id"],
-                "title": r["title"],
+                "recipe_nm_ko": r["recipe_nm_ko"],
                 "cooking_time": r.get("cooking_time"),
-                "difficulty": r.get("difficulty"),
+                "level_nm": r.get("level_nm"),
                 "selected_date": to_yyyy_mm_dd(r.get("selected_date_only")),
             }
             for r in rows
@@ -839,13 +776,12 @@ def get_recipe(recipe_id: int, current_user: str = Depends(get_current_user)):
         cur.execute(
             """
             SELECT
-            r.recipe_id   AS id,
-            r.recipe_nm_ko AS title,
-            r.cooking_time AS cook_time,
-            r.level_nm     AS difficulty,
-            r.ingredient_full AS ingredients_text,
-            r.step_text AS steps_text,
-            NULL AS step_tip
+            r.recipe_id,
+            r.recipe_nm_ko,
+            r.cooking_time,
+            r.level_nm,
+            r.ingredient_full,
+            r.step_text
             FROM recipe r
             WHERE r.recipe_id = %s
             """,
