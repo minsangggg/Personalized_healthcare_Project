@@ -218,6 +218,73 @@ class SaveFridgeIn(BaseModel):
 class SelectIn(BaseModel):
     recipe_id: int
 
+class SelectedActionIn(BaseModel):
+    action: int = Field(..., ge=0, le=1)
+
+# ----- FAQ -----
+def ensure_faq_table():
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS faq (
+              faq_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+              question VARCHAR(255) NOT NULL,
+              answer MEDIUMTEXT NOT NULL,
+              category VARCHAR(50) NULL,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              is_visible TINYINT(1) NOT NULL DEFAULT 1
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+
+
+@app.get("/faq")
+def list_faq(
+    query: Optional[str] = Query(None, description="검색어 (질문/답변/분류)"),
+    category: Optional[str] = Query(None, description="카테고리 정확히 일치 필터"),
+    limit: int = Query(30, ge=1, le=100),
+):
+    ensure_faq_table()
+    clauses = ["is_visible=1"]
+    params: list[Any] = []
+    if query:
+        clauses.append("(question LIKE %s OR answer LIKE %s OR category LIKE %s)")
+        like = f"%{query}%"
+        params.extend([like, like, like])
+    if category:
+        clauses.append("category = %s")
+        params.append(category)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"""
+      SELECT faq_id, question, answer, category, created_at, updated_at, is_visible
+      FROM faq
+      {where}
+      ORDER BY created_at DESC
+      LIMIT %s
+    """
+    params.append(int(limit))
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+    return {"count": len(rows), "items": rows}
+
+
+@app.get("/faq/categories")
+def list_faq_categories():
+    ensure_faq_table()
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT DISTINCT category
+            FROM faq
+            WHERE is_visible=1 AND category IS NOT NULL AND category <> ''
+            ORDER BY category
+            """
+        )
+        rows = cur.fetchall() or []
+    return {"items": [r.get("category") for r in rows if r.get("category") is not None]}
+
 # ── Health ───────────────────────────────────
 @app.get("/health")
 def health():
@@ -231,6 +298,7 @@ def auth_login(b: AuthLoginIn, request: Request, response: Response):
             SELECT id AS user_id, user_name, password
             FROM user_info
             WHERE id=%s
+              AND (is_deleted IS NULL OR is_deleted = 0)
             LIMIT 1
         """, (b.id,))
         row = cur.fetchone()
@@ -330,6 +398,53 @@ def auth_logout(response: Response, refresh: Optional[str] = Cookie(default=None
         except Exception:
             pass
     return {"ok": True}
+
+# ---- 회원 탈퇴 ----
+@app.delete("/me/delete")
+def delete_me(response: Response, current_user: str = Depends(get_current_user), payload: Dict[str, Any] = Body(...)):
+    pw  = str(payload.get("password", "")).strip()
+    pw2 = str(payload.get("password_confirm", "")).strip()
+    if not pw or not pw2:
+        raise HTTPException(400, "password / password_confirm required")
+    if pw != pw2:
+        raise HTTPException(400, "passwords do not match")
+
+    uid = current_user
+    with get_conn() as conn, conn.cursor() as cur:
+        # 비밀번호 확인 및 탈퇴 안된 사용자 확인
+        cur.execute(
+            """
+            SELECT id, password
+            FROM user_info
+            WHERE id=%s
+              AND (is_deleted IS NULL OR is_deleted = 0)
+            LIMIT 1
+            """,
+            (uid,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "account already deleted or not found")
+        if str(row["password"]) != pw:
+            raise HTTPException(401, "invalid password")
+
+        # 비식별화 + 탈퇴 플래그
+        cur.execute(
+            """
+            UPDATE user_info
+            SET user_name = %s,
+                email = %s,
+                password = %s,
+                is_deleted = 1
+            WHERE id=%s
+            """,
+            ("**", "**", "**", uid),
+        )
+        conn.commit()
+
+    # refresh 쿠키 제거
+    response.delete_cookie(key="refresh", path="/auth/refresh")
+    return {"ok": True, "message": "그동안 이용해주셔서 감사합니다. 계정이 삭제 처리되었습니다."}
 
 @app.get("/me")
 def me(current_user: str = Depends(get_current_user)):
@@ -619,6 +734,23 @@ def get_recommendations(
     ),
 ):
     try:
+        with get_conn() as conn, conn.cursor() as cur:
+            # 0) 최근 10초 이내 이미 추천된 것이 있으면 그대로 반환(중복 적재 방지)
+            cur.execute(
+                """
+                SELECT rr.recipe_id, rr.recipe_nm_ko, r.cooking_time, r.level_nm, rr.ingredient_full, rr.step_text
+                FROM recommend_recipe rr
+                JOIN recipe r ON rr.recipe_id = r.recipe_id
+                WHERE rr.id = %s AND rr.recommend_date >= (NOW() - INTERVAL 10 SECOND)
+                ORDER BY rr.recommend_date DESC
+                LIMIT %s
+                """,
+                (current_user, limit),
+            )
+            recent_rows = cur.fetchall() or []
+        if len(recent_rows) >= limit:
+            return JSONResponse(content=recent_rows[:limit], status_code=200)
+
         # 1) 추천 실행 및 DB 적재
         _ = recommend_json(user_id=current_user, limit=limit)
 
@@ -626,13 +758,7 @@ def get_recommendations(
         with get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT
-                  rr.recipe_id,
-                  rr.recipe_nm_ko,
-                  r.cooking_time,
-                  r.level_nm,
-                  rr.ingredient_full,
-                  rr.step_text
+                SELECT rr.recipe_id, rr.recipe_nm_ko, r.cooking_time, r.level_nm, rr.ingredient_full, rr.step_text
                 FROM recommend_recipe rr
                 JOIN recipe r ON rr.recipe_id = r.recipe_id
                 WHERE rr.id = %s
@@ -678,7 +804,8 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
           sr.selected_id,
           sr.recommend_id,
           rr.recipe_id,
-          r.recipe_nm_ko,
+          rr.recipe_nm_ko,
+          sr.action,
           r.cooking_time,
           r.level_nm,
 
@@ -704,11 +831,11 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
 
         FROM selected_recipe sr
         JOIN recommend_recipe rr ON sr.recommend_id = rr.recommend_id
-        JOIN recipe r ON rr.recipe_id = r.recipe_id
-        WHERE rr.id = %s
+        LEFT JOIN recipe r ON rr.recipe_id = r.recipe_id
+        WHERE rr.id = %s AND sr.id = %s
         ORDER BY sort_key DESC
         """
-        cur.execute(sql, (current_user,))
+        cur.execute(sql, (current_user, current_user))
         rows = cur.fetchall() or []
 
     def to_yyyy_mm_dd(x):
@@ -726,6 +853,7 @@ def get_selected_recipes(current_user: str = Depends(get_current_user)):
                 "recommend_id": r["recommend_id"],
                 "recipe_id": r["recipe_id"],
                 "recipe_nm_ko": r["recipe_nm_ko"],
+                "action": r.get("action") if isinstance(r, dict) else None,
                 "cooking_time": r.get("cooking_time"),
                 "level_nm": r.get("level_nm"),
                 "selected_date": to_yyyy_mm_dd(r.get("selected_date_only")),
@@ -754,20 +882,46 @@ def delete_selected_recipe(selected_id: int, current_user: str = Depends(get_cur
         """, (selected_id, uid))
         conn.commit()
     return Response(status_code=204)   
+
+# 선택 항목 action 토글 (0/1)
+@app.patch("/me/selected-recipe/{selected_id}/action")
+def update_selected_action(selected_id: int, b: SelectedActionIn, current_user: str = Depends(get_current_user)):
+    uid = current_user
+    if b.action not in (0, 1):
+        raise HTTPException(400, "action must be 0 or 1")
+    with get_conn() as conn, conn.cursor() as cur:
+        # 권한 확인
+        cur.execute(
+            """
+            SELECT 1 FROM selected_recipe
+            WHERE selected_id=%s AND id=%s
+            LIMIT 1
+            """,
+            (selected_id, uid),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="selected record not found")
+        cur.execute(
+            "UPDATE selected_recipe SET action=%s WHERE selected_id=%s AND id=%s",
+            (int(b.action), selected_id, uid),
+        )
+        conn.commit()
+    return {"ok": True, "selected_id": selected_id, "action": int(b.action)}
     
 @app.get("/me/selected-recipe/status")
 def selected_status(recipe_id: int, current_user: str = Depends(get_current_user)):
     uid = current_user
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("""
-          SELECT selected_id
-          FROM selected_recipe
-          WHERE id=%s AND recipe_id=%s
+          SELECT sr.selected_id
+          FROM selected_recipe sr
+          JOIN recommend_recipe rr ON sr.recommend_id = rr.recommend_id
+          WHERE sr.id=%s AND rr.id=%s AND rr.recipe_id=%s
           LIMIT 1
-        """, (uid, recipe_id))
+        """, (uid, uid, recipe_id))
         row = cur.fetchone()
     return {"selected": bool(row), "selected_id": (row or {}).get("selected_id")}   
-    
+
 
 # 레시피 상세 조회
 @app.get("/recipes/{recipe_id}")
@@ -791,5 +945,34 @@ def get_recipe(recipe_id: int, current_user: str = Depends(get_current_user)):
         if not row:
             raise HTTPException(status_code=404, detail="Recipe not found")
     return {"recipe": row}
+
+
+# 추천 레코드 상세 조회 (recommend_recipe.recommend_id 기준)
+@app.get("/recommendations/{recommend_id}")
+def get_recommendation_detail(recommend_id: int, current_user: str = Depends(get_current_user)):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              rr.recommend_id,
+              rr.id,
+              rr.recipe_id,
+              rr.recipe_nm_ko,
+              rr.ingredient_full,
+              rr.step_text,
+              r.cooking_time,
+              r.level_nm
+            FROM recommend_recipe rr
+            JOIN recipe r ON r.recipe_id = rr.recipe_id
+            WHERE rr.recommend_id = %s AND rr.id = %s
+            LIMIT 1
+            """,
+            (recommend_id, current_user),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Recommendation not found")
+    # DB 컬럼명 그대로 반환
+    return {"recommendation": row}
 
 
