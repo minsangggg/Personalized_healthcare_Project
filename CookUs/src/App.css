@@ -15,6 +15,8 @@
   display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
 }
 .brand-center{ justify-self:center }
+.brand-left img{ height:28px; width:auto; display:block; }
+.brand-center{ justify-self:center }
 .brand-center .brand-text{ font-weight:1000; letter-spacing:.04em; color:#683616; font-size:20px }
 .user-area{ justify-self:end; display:flex; gap:6px; align-items:center }
 .username{ font-weight:500; color:#5a3b2a }
@@ -52,7 +54,6 @@
   background:#fffdf4;
   display:grid;
   grid-template-rows:auto auto auto 1fr auto auto;
-  justify-items:center; text-align:center; row-gap:10px; padding: 20px 0px 50%;
+  justify-items:center; text-align:center; row-gap:10px; padding: 24px;
   border:1px solid var(--paper-bd); border-radius:16px; box-shadow:0 8px 22px rgba(0,0,0,.06);
 }
-
