@@ -10,7 +10,7 @@ type Props = {
 
 export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
   const [deleting, setDeleting] = useState(false)
-  const top3 = top3Ingredients((recipe as any).ingredients_text ?? (recipe as any).ingredient_full)
+  const top3 = top3Ingredients((recipe as any).ingredient_full)
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -26,12 +26,13 @@ export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
 
   return (
     <div className="rc-card">
-      <h3 className="rc-title clamp-2">{recipe.title}</h3>
+      <h3 className="rc-title clamp-2">{(recipe as any).recipe_nm_ko}</h3>
 
       <div className="rc-meta">
-        {(recipe as any).difficulty && <span className="chip">{(recipe as any).difficulty}</span>}
-        {recipe.level_nm && <span className="chip">{recipe.level_nm}</span>}
-        {typeof recipe.cook_time === 'number' && <span className="chip">{recipe.cook_time}분</span>}
+        {(recipe as any).level_nm && (
+          <span className="chip">{(recipe as any).level_nm}</span>
+        )}
+        {typeof (recipe as any).cooking_time === 'number' && <span className="chip">{(recipe as any).cooking_time}분</span>}
       </div>
 
       <div className="rc-ings clamp-2">

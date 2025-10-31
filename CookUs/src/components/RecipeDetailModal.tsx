@@ -4,7 +4,7 @@ import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
 
-type Props = { recipe: Recipe; onClose: () => void; showSelect?: boolean }
+type Props = { recipe: Recipe; onClose: () => void; showSelect?: boolean; cooked?: boolean }
 
 function FramePortal({ children }: { children: React.ReactNode }) {
   const host = document.querySelector('.app-frame')
@@ -12,7 +12,7 @@ function FramePortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, host)
 }
 
-export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: Props){
+export default function RecipeDetailModal({ recipe, onClose, showSelect=true, cooked=false }: Props){
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -22,7 +22,7 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: 
     const check = async () => {
       try {
         const { data } = await api.get('/me/selected-recipe/status', {
-          params: { recipe_id: recipe.id }
+          params: { recipe_id: recipe.recipe_id }
         })
         if (!alive) return
         if (data?.selected) {
@@ -37,13 +37,13 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: 
     }
     check()
     return () => { alive = false }
-  }, [recipe.id])
+  }, [recipe.recipe_id])
 
   const selectRecipe = async () => {
     if (selected || selecting) return
     try {
       setSelecting(true)
-      await api.post('/me/selected-recipe', { recipe_id: recipe.id })
+      await api.post('/me/selected-recipe', { recipe_id: recipe.recipe_id })
       setSelected(true)
       setNotice('캘린더에 기록했어요!')
     } catch (e) {
@@ -55,7 +55,7 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: 
 
   const steps = toLines((recipe as any).step_text)
   const tips  = toLines((recipe as any).step_tip)
-  const ings  = toArray((recipe as any).ingredients_text ?? (recipe as any).ingredient_full)
+  const ings  = toArray((recipe as any).ingredient_full)
 
   return (
     <FramePortal>
@@ -63,18 +63,23 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true }: 
         <div className="rec-modal" onClick={e=>e.stopPropagation()}>
           <div className="rec-head">
             <h3>
-              {recipe.title}
+              {recipe.recipe_nm_ko}
               {selected && <span className="chip ok">선택됨</span>}
+              {cooked && <span className="chip cooked">요리함</span>}
             </h3>
             <button className="rec-x" onClick={onClose}>×</button>
           </div>
 
-          {/* 인앱 안내 영역 */}
-          {notice && <div className={`inline-note ${selected ? 'ok' : 'warn'}`}>{notice}</div>}
+          {/* 인앱 안내 영역: 캘린더 탭에서 열렸다면(showSelect=false) 노출하지 않음 */}
+          {showSelect && notice && (
+            <div className={`inline-note ${selected ? 'ok' : 'warn'}`}>{notice}</div>
+          )}
 
           <div className="rec-sub">
-            {recipe.cook_time && <span>조리시간: {recipe.cook_time}분</span>}
-            {(recipe as any).difficulty && <span>난이도: {(recipe as any).difficulty}</span>}
+            {typeof (recipe as any).cooking_time === 'number' && <span>조리시간: {(recipe as any).cooking_time}분</span>}
+            {(recipe as any).level_nm && (
+              <span>난이도: {(recipe as any).level_nm}</span>
+            )}
           </div>
 
           {/* 이하 기존 섹션들 그대로 */}
