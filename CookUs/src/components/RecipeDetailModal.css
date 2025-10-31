@@ -83,3 +83,12 @@
   color: #065f46;
   border: 1px solid #a7f3d0;
 }
+.chip.cooked{
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: #fff7d6;
+  color: #7a5a2e;
+  border: 1px solid #f3d38a;
+}
