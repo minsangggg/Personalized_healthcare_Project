@@ -1,22 +1,23 @@
 import api from './axios'
 
+// Use DB column names directly
 export type Recipe = {
-  id: number
-  title: string
-  cook_time?: number | null
+  recipe_id: number
+  recipe_nm_ko: string
+  cooking_time?: number | null
   level_nm?: string | null
   ingredient_full?: any
   step_text?: any
-  step_tip?: any
 }
 
 export type SelectedRecipe = {
   selected_id: number
   recommend_id: number
   recipe_id: number
-  title: string
+  recipe_nm_ko: string
+  action?: number
   cooking_time?: number
-  difficulty?: string
+  level_nm?: string
   selected_date: string
 }
 
@@ -26,15 +27,7 @@ export type SelectedRecipesResponse = {
   recipes: SelectedRecipe[]
 }
 
-export const normalize = (rec: any): Recipe => ({
-  id: Number(rec.id ?? rec.recipe_id),
-  title: rec.title ?? rec.recipe_nm_ko ?? '',
-  cook_time: rec.cook_time ?? rec.cooking_time ?? null,
-  level_nm: rec.level_nm ?? rec.difficulty ?? null,
-  ingredient_full: rec.ingredient_full ?? rec.ingredients_text ?? rec.ingredients ?? null,
-  step_text: rec.step_text ?? rec.steps_text ?? null,
-  step_tip: rec.step_tip ?? rec.tips ?? null,
-})
+// No normalization: API returns DB column names
 
 export const recipeAPI = {
   async recommendTop3(): Promise<Recipe[]> {
@@ -42,7 +35,8 @@ export const recipeAPI = {
     const list: any[] = Array.isArray(data)
       ? data
       : (data?.recommended_db_candidates ?? data?.recommended ?? [])
-    return list.map(normalize).filter(x => Number.isFinite(x.id))
+    // recommendations endpoint already returns DB columns
+    return (list as Recipe[]).filter(x => Number.isFinite(x.recipe_id))
   },
 
   async selectRecipe(recipeId: number): Promise<void> {
@@ -57,10 +51,28 @@ export const recipeAPI = {
   async getRecipe(id: number): Promise<Recipe> {
     const { data } = await api.get(`/recipes/${id}`, { withCredentials: true })
     const raw = data?.recipe ?? data
-    return normalize(raw)
+    return raw as Recipe
+  },
+
+  async getRecommendation(recommendId: number): Promise<Recipe> {
+    const { data } = await api.get(`/recommendations/${recommendId}`, { withCredentials: true })
+    const raw = data?.recommendation ?? data
+    // Map to Recipe-like shape (DB column names used in UI):
+    return {
+      recipe_id: Number(raw.recipe_id),
+      recipe_nm_ko: String(raw.recipe_nm_ko ?? ''),
+      cooking_time: raw.cooking_time ?? null,
+      level_nm: raw.level_nm ?? null,
+      ingredient_full: raw.ingredient_full ?? null,
+      step_text: raw.step_text ?? null,
+    } as Recipe
   },
 
   async deleteSelected(selectedId: number): Promise<void> {
     await api.delete(`/me/selected-recipe/${selectedId}`)
+  },
+
+  async setSelectedAction(selectedId: number, action: 0|1): Promise<void> {
+    await api.patch(`/me/selected-recipe/${selectedId}/action`, { action })
   },
 }

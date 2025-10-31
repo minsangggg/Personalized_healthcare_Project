@@ -28,6 +28,10 @@ export const authAPI = {
     return data
   },
   logout: async () => { try { await api.post('/auth/logout') } finally { clearAccessToken() } },
+  deleteMe: async (password: string, password_confirm: string) => {
+    await api.delete('/me/delete', { data: { password, password_confirm } })
+    clearAccessToken()
+  },
   signup: async (payload: any) => { await api.post('/auth/signup', payload) },
   me: async () => { const { data } = await api.get<User>('/me'); return data },
 
