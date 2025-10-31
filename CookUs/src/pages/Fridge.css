@@ -37,6 +37,10 @@
   position:relative;
 }
 
+/* Wider modals for About/FAQ within app-frame */
+.rec-modal.modal-wide{ width:96% !important; max-height:88vh !important; }
+.rec-modal.modal-full{ width:98% !important; height:80vh !important; max-height:none !important; }
+
 .rec-loading{
   display:grid; place-items:center; gap:10px; padding:20px 0;
 }
