@@ -28,7 +28,7 @@
 
 .field{
   display:grid;
-  grid-template-columns: 110px 1fr;   /* label width */
+  grid-template-columns: 80px 1fr;   /* label width */
   align-items:center;
   background:#fffdf2;
   border:1px solid #e9c86f;
@@ -37,10 +37,13 @@
 }
 .field-label{
   font-size:14px; color:#7b4e2d; letter-spacing:.2px;
+  border-right:1px solid #e9c86f;  /* vertical divider */
+  width: 80px;
 }
 .field-val{
   display:flex; align-items:center; gap:8px; flex-wrap:wrap;
   min-height:20px;
+  padding-left:15px;  /* space after divider */
 }
 
 /* --- Values --- */
@@ -62,7 +65,8 @@
 
 @media (max-width: 380px) {
   .field { grid-template-columns: 1fr; gap:6px; }
-  .field-label { opacity:.9; }
+  .field-label { opacity:.9; border-right:none; padding-right:0; }
+  .field-val { padding-left:0; }
 }
 
 .editbtn{
