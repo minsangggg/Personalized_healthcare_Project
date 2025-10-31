@@ -1,4 +1,4 @@
-import os, re, json
+import os, re, json, random
 from datetime import datetime, timedelta
 import pandas as pd
 import pymysql
@@ -104,7 +104,8 @@ def fetch_candidates_like(keywords: List[str], limit=200, and_top: int = 3) -> L
     top = max(1, min(and_top, len(kws)))
 
     def like_group_for_kw(kw: str) -> Tuple[str, List[str]]:
-        return "(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s OR tag LIKE %s)", [f"%{kw}%", f"%{kw}%", f"%{kw}%"]
+        # Use only schema-defined columns
+        return "(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s)", [f"%{kw}%", f"%{kw}%"]
 
     and_clauses: List[str] = []
     params: List[Any] = []
@@ -131,26 +132,23 @@ def fetch_candidates_like(keywords: List[str], limit=200, and_top: int = 3) -> L
         return []
 
     sql = f"""
-    SELECT recipe_id, recipe_nm_ko AS title, cooking_time AS cook_time,
-           level_nm AS difficulty, ingredient_full AS ingredients_text, step_text AS steps_text,
-           tag, ty_nm
+    SELECT recipe_id, recipe_nm_ko, cooking_time, level_nm, ingredient_full, step_text, ty_nm
     FROM recipe
     WHERE {where}
+    ORDER BY RAND()
     LIMIT {int(limit)}
     """
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
 
-def _tokens_from_ingredients_text(text: str) -> List[str]:
-    if not text: return []
-    hits = re.findall(r"'([^']+)'", str(text))
-    if hits: return [_norm(h) for h in hits if _norm(h)]
-    return [_norm(p) for p in str(text).split(",") if _norm(p)]
+def _tokens_from_ingredient_full(val: Any) -> List[str]:
+    """Extract normalized ingredient tokens from ingredient_full (dict/list/string)."""
+    return _extract_tokens_from_ingredients_text(val)
 
 def guess_main_ingredient(c: Dict[str,Any]) -> str:
-    toks = _tokens_from_ingredients_text(c.get("ingredients_text") or "")
-    return toks[0] if toks else _norm((c.get("title") or "기타").split()[0])
+    toks = _tokens_from_ingredient_full(c.get("ingredient_full"))
+    return toks[0] if toks else _norm((c.get("recipe_nm_ko") or "기타").split()[0])
 
 def _primary_group(c: Dict[str, Any]) -> str:
     ty = (c.get("ty_nm") or "").strip()
@@ -165,7 +163,7 @@ def ensure_diverse_top(cands: List[Dict[str, Any]], want: int = 3) -> List[Dict[
     out: List[Dict[str, Any]] = []
     for c in cands:
         rid = c.get("recipe_id")
-        title = _norm(c.get("title") or "")
+        title = _norm(c.get("recipe_nm_ko") or "")
         group = _primary_group(c)
         if rid in seen_ids:
             continue
@@ -203,7 +201,7 @@ def _format_for_display(adapted_rows: List[Dict[str,Any]], profile: Dict[str,Any
     name = profile.get("name") or "사용자"
     
     # 원본 후보 데이터에서 난이도/시간 정보를 가져옵니다.
-    id_to_meta = {c["recipe_id"]: {"difficulty": c.get("difficulty"), "cook_time": c.get("cook_time")} for c in candidates}
+    id_to_meta = {c["recipe_id"]: {"level_nm": c.get("level_nm"), "cooking_time": c.get("cooking_time")} for c in candidates}
     
     output_parts = [
         f"**{name}님! 냉장고 속 재료로 만들 수 있는 세 가지 레시피를 추천해 드릴게요!**"
@@ -212,8 +210,8 @@ def _format_for_display(adapted_rows: List[Dict[str,Any]], profile: Dict[str,Any
     for idx, r in enumerate(adapted_rows, 1):
         rid = r.get("recipe_id")
         meta = id_to_meta.get(rid, {})
-        level = meta.get("difficulty") or "정보 없음"
-        time = meta.get("cook_time") or ""
+        level = meta.get("level_nm") or "정보 없음"
+        time = meta.get("cooking_time") or ""
         
         # 난이도/소요시간 형식 조정 (문제점 2 해결)
         meta_str = f"({level}"
@@ -276,7 +274,7 @@ def recommend_with_llm(profile: Dict[str,Any],
     - [조리 순서]는 단계별 한 문장씩 명령형으로만 정리하세요. 광고/후기/감탄사/이모지 금지.
 
 [후보(원본 데이터)]
-  - 각 후보는 title, cook_time, difficulty(level_nm), ingredients_text(원문 재료), steps_text(원문 조리), missing(사용자 냉장고에 없는 재료 리스트)가 있습니다.
+  - 각 후보는 recipe_nm_ko, cooking_time, level_nm, ingredient_full(원문 재료), step_text(원문 조리), missing(사용자 냉장고에 없는 재료 리스트)가 있습니다.
 - 없는 메타데이터(예: cooking_time이 비어 있음)는 그냥 비워두세요.
 - 단, 재료나 조리문을 바꿀 때는 반드시 다음 원칙을 지켜야 합니다:
   - (a) 원래 레시피에 등장하는 재료 범위 안에서만 수정할 것
@@ -292,7 +290,7 @@ def recommend_with_llm(profile: Dict[str,Any],
 
 1. 레시피명 (하/20분 소요)
    - [필요 재료]
-     (ingredients_text를 정리하되, [조리 순서]에서 실제로 사용하는 모든 재료를 1:1로 포함. 
+     (ingredient_full을 정리하되, [조리 순서]에서 실제로 사용하는 모든 재료를 1:1로 포함. 
       즉, [조리 순서]에 등장하는 재료/양념/부재료는 반드시 [필요 재료]에 존재해야 하고,
       [필요 재료]에 있는 항목은 [조리 순서] 어딘가에서 실제로 사용되어야 함. 누락/유령 재료 금지. 
       표기는 가능하면 '재료명(용량)' 형태로, 용량 정보가 없으면 재료명만 적을 것)
@@ -409,7 +407,7 @@ def llm_adapt_recipes_json(
             # 후보 final_three 기준으로 fallback id/title 확보
             if i < len(candidates):
                 fallback_id = int(candidates[i]["recipe_id"])
-                fallback_title = str(candidates[i]["title"] or "")
+                fallback_title = str(candidates[i].get("recipe_nm_ko") or "")
             else:
                 fallback_id = None
                 fallback_title = ""
@@ -454,40 +452,62 @@ def ensure_recommend_recipe_table():
 def insert_recommend_recipes(rows: List[Dict[str,Any]]):
     if not rows:
         return
-    sql = (
+    insert_sql = (
         """
         INSERT INTO recommend_recipe (id, recipe_nm_ko, ingredient_full, step_text, recipe_id)
         VALUES (%s, %s, %s, %s, %s)
         """
     )
+    exists_sql = (
+        """
+        SELECT 1 FROM recommend_recipe
+        WHERE id=%s AND recipe_id=%s AND recommend_date >= (NOW() - INTERVAL 2 MINUTE)
+        LIMIT 1
+        """
+    )
     with get_conn() as conn, conn.cursor() as cur:
         for r in rows:
+            uid = r.get("id")
+            rid = r.get("recipe_id")
+            if uid is None or rid is None:
+                continue
+            cur.execute(exists_sql, (uid, rid))
+            if cur.fetchone():
+                continue
             cur.execute(
-                sql,
+                insert_sql,
                 (
-                    r.get("id"),
+                    uid,
                     r.get("recipe_nm_ko"),
                     json.dumps(r.get("ingredient_full") or {}, ensure_ascii=False),
                     r.get("step_text"),
-                    r.get("recipe_id"),
+                    rid,
                 ),
             )
 
 # ---- Ingredient enforcement helpers ----
-def _extract_tokens_from_ingredients_text(text: str) -> List[str]:
+def _extract_tokens_from_ingredients_text(val: Any) -> List[str]:
+    """Accepts ingredient_full (object/array/string) or legacy text; returns normalized tokens."""
+    if val is None:
+        return []
+    if isinstance(val, dict):
+        return [_norm(k) for k in val.keys() if _norm(k)]
+    if isinstance(val, list):
+        return [_norm(x) for x in val if _norm(x)]
+    text = str(val)
     if not text:
         return []
-    hits = re.findall(r"'([^']+)'", str(text))
+    hits = re.findall(r"'([^']+)'", text)
     if hits:
         return [_norm(h) for h in hits if _norm(h)]
-    parts = [p.strip() for p in str(text).replace("\n", ",").split(",")]
+    parts = [p.strip() for p in text.replace("\n", ",").split(",")]
     return [_norm(p) for p in parts if _norm(p)]
 
 def _substitute_with_fridge(token: str, fridge_tokens: set) -> str:
     # Exact only; no invention. If user has a very close variant (case/space), keep as-is for safety.
     return token if token in fridge_tokens else token
 
-def _enforce_ingredients_full(original_ingredients_text: str,
+def _enforce_ingredients_full(original_ingredients_text: Any,
                               fridge_tokens: set,
                               llm_ingredient_full: Dict[str, Any]) -> Dict[str, Any]:
     required = _extract_tokens_from_ingredients_text(original_ingredients_text)
@@ -505,13 +525,7 @@ def _enforce_ingredients_full(original_ingredients_text: str,
     return enforced
 
 # --- 텍스트에서 재료 토큰 추출(이미 있으면 유지) ---
-def _tokens_from_ingredients_text(text: str) -> List[str]:
-    if not text:
-        return []
-    hits = re.findall(r"'([^']+)'", str(text))
-    if hits:
-        return [_norm(h) for h in hits if _norm(h)]
-    return [_norm(p) for p in str(text).split(",") if _norm(p)]
+# (removed legacy _tokens_from_ingredients_text; use _tokens_from_ingredient_full)
 
 # --- 냉장고 재료 토큰 집합 만들기(※ recommend_json 보다 위에 있어야 함) ---
 def _fridge_token_set(fridge_df: pd.DataFrame) -> set:
@@ -532,6 +546,23 @@ def recommend_json(user_id: Optional[str], limit: int = 3, exclude_ids: Optional
     fridge = get_user_fridge_items(uid)
     keywords = pick_keywords_from_fridge_all(fridge, max_n=30)
     recent = recent_items_from_fridge(fridge, days=10, top=8)
+    # 최근 추천한 레시피는 제외하여 다양성 확보
+    recent_exclude: List[int] = []
+    try:
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT recipe_id
+                FROM recommend_recipe
+                WHERE id=%s AND recommend_date >= CURDATE()
+                ORDER BY recommend_date DESC
+                LIMIT 100
+                """,
+                (uid,)
+            )
+            recent_exclude = [int(r["recipe_id"]) for r in (cur.fetchall() or []) if r.get("recipe_id") is not None]
+    except Exception:
+        recent_exclude = []
 
     # 점진적 완화: AND top3 -> AND top2 -> AND top1 -> OR-only
     cands = fetch_candidates_like(keywords, limit=300, and_top=3)
@@ -547,29 +578,35 @@ def recommend_json(user_id: Optional[str], limit: int = 3, exclude_ids: Optional
             clauses = []
             params: List[Any] = []
             for kw in kws:
-                clauses.append("(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s OR tag LIKE %s)")
-                params.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
+                clauses.append("(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s)")
+                params.extend([f"%{kw}%", f"%{kw}%"])
             where = " OR ".join(clauses)
             sql = f"""
-            SELECT recipe_id, recipe_nm_ko AS title, cooking_time AS cook_time,
-                   level_nm AS difficulty, ingredient_full AS ingredients_text, step_text AS steps_text,
-                   tag, ty_nm
+            SELECT recipe_id, recipe_nm_ko, cooking_time, level_nm, ingredient_full, step_text, ty_nm
             FROM recipe
             WHERE {where}
+            ORDER BY RAND()
             LIMIT 300
             """
             with get_conn() as conn, conn.cursor() as cur:
                 cur.execute(sql, params)
                 cands = cur.fetchall()
 
-    if exclude_ids:
-        exclude_set = set(exclude_ids)
-        cands = [c for c in cands if c["recipe_id"] not in exclude_set]
+    # 적용할 제외 집합: 호출자가 전달한 것 + 최근 추천 목록
+    exclude_all = set(exclude_ids or []) | set(recent_exclude)
+    if exclude_all:
+        cands = [c for c in cands if c["recipe_id"] not in exclude_all]
 
     # 0) 난이도(사용자 cooking_level) 우선 필터링: 부족하면 완화
     user_level = (profile.get("cooking_level") or "").strip()
-    level_filtered = [c for c in cands if (str(c.get("difficulty") or "").strip() == user_level)] if user_level else cands
+    level_filtered = [c for c in cands if (str(c.get("level_nm") or "").strip() == user_level)] if user_level else cands
     cpool = level_filtered if level_filtered else cands
+    # 섞어서 다양성을 높임 (RAND()와 함께 사용)
+    try:
+        cpool = list(cpool)
+        random.shuffle(cpool)
+    except Exception:
+        pass
 
     # 1) 1차 다양성 (메인재료 버킷)
     diversified = diversify_candidates(cpool, want=max(12, limit * 4), max_per_main=1)
@@ -583,21 +620,49 @@ def recommend_json(user_id: Optional[str], limit: int = 3, exclude_ids: Optional
     if len(final_three) < limit and cpool:
         # 이미 선택된 레시피 ID와 타이틀을 제외
         chosen_ids = {c["recipe_id"] for c in final_three}
-        chosen_titles = {_norm(c["title"] or "") for c in final_three}
+        chosen_titles = {_norm(c.get("recipe_nm_ko") or "") for c in final_three}
         
         # 1차 필터링 풀(cpool)을 사용
         for c in cpool:
-            if c["recipe_id"] not in chosen_ids and _norm(c["title"] or "") not in chosen_titles:
+            if c["recipe_id"] not in chosen_ids and _norm(c.get("recipe_nm_ko") or "") not in chosen_titles:
                 final_three.append(c)
                 chosen_ids.add(c["recipe_id"])
-                chosen_titles.add(_norm(c["title"] or ""))
+                chosen_titles.add(_norm(c.get("recipe_nm_ko") or ""))
             if len(final_three) >= limit:
                 break
+
+    # 3-B) 여전히 부족하면 랜덤 레시피로 채움 (선택된 ID/제목 제외)
+    if len(final_three) < limit:
+        need = limit - len(final_three)
+        chosen_ids = {c["recipe_id"] for c in final_three}
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT recipe_id, recipe_nm_ko, cooking_time, level_nm, ingredient_full, step_text, ty_nm
+                FROM recipe
+                WHERE recipe_id NOT IN ({','.join(['%s']*len(chosen_ids))})
+                ORDER BY RAND() LIMIT %s
+                """ if chosen_ids else
+                """
+                SELECT recipe_id, recipe_nm_ko, cooking_time, level_nm, ingredient_full, step_text, ty_nm
+                FROM recipe
+                ORDER BY RAND() LIMIT %s
+                """,
+                tuple(chosen_ids) + (need,) if chosen_ids else (need,)
+            )
+            extra = cur.fetchall() or []
+            for c in extra:
+                if len(final_three) >= limit:
+                    break
+                if c["recipe_id"] in chosen_ids:
+                    continue
+                final_three.append(c)
+                chosen_ids.add(c["recipe_id"])
     
     # 2.5) 각 후보에 'missing' 필드 추가 (냉장고에 없는 재료)
     ftoks = _fridge_token_set(fridge)
     for c in final_three:
-        toks = _tokens_from_ingredients_text(c.get("ingredients_text") or "")
+        toks = _tokens_from_ingredient_full(c.get("ingredient_full"))
         miss = [t for t in toks if t and t not in ftoks]
         c["missing"] = miss[:6]  # 너무 길지 않게 상한선
 
@@ -628,7 +693,7 @@ def recommend_json(user_id: Optional[str], limit: int = 3, exclude_ids: Optional
             
             # --- 재료 일관성 강제 로직은 그대로 유지 ---
             enforced_ing = _enforce_ingredients_full(
-                cand.get("ingredients_text") or "",
+                cand.get("ingredient_full") or {},
                 fridge_tokens,
                 r.get("ingredient_full") or {},
             )
@@ -642,11 +707,27 @@ def recommend_json(user_id: Optional[str], limit: int = 3, exclude_ids: Optional
             new_r["ingredient_full"] = enforced_ing
             enforced_rows.append(new_r)
         
-        insert_recommend_recipes(enforced_rows) # 최종 보정된 재료로 DB에 적재
-        
-        # 3.2) DB에 적재된 최종 내용을 브라우저 표시용 텍스트로 변환 (문제점 3 해결)
-        llm_text_result = _format_for_display(enforced_rows, profile, final_three)
-        adapted_rows = enforced_rows # 최종 DB 적재된 리스트로 교체
+        # LLM 실패 등으로 비어 있으면 후보 원본으로라도 적재(선택 저장 가능하도록)
+        if not enforced_rows:
+            fallback_rows = [
+                {
+                    "id": str(uid),
+                    "recipe_nm_ko": str(c.get("recipe_nm_ko") or ""),
+                    "ingredient_full": c.get("ingredient_full") or {},
+                    "step_text": str(c.get("step_text") or ""),
+                    "recipe_id": c.get("recipe_id"),
+                }
+                for c in final_three
+            ]
+            insert_recommend_recipes(fallback_rows)
+            llm_text_result = "LLM 미사용: DB 후보를 기준으로 추천을 구성했어요."
+            adapted_rows = fallback_rows
+        else:
+            insert_recommend_recipes(enforced_rows) # 최종 보정된 재료로 DB에 적재
+            
+            # 3.2) DB에 적재된 최종 내용을 브라우저 표시용 텍스트로 변환 (문제점 3 해결)
+            llm_text_result = _format_for_display(enforced_rows, profile, final_three)
+            adapted_rows = enforced_rows # 최종 DB 적재된 리스트로 교체
 
     # --- 냉장고 샘플: 이름(용량) 안전하게 만들기 ---
     def _fmt_name_amount(row):
