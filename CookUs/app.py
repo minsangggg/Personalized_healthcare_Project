@@ -972,7 +972,6 @@ def get_recommendation_detail(recommend_id: int, current_user: str = Depends(get
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Recommendation not found")
-    # DB 컬럼명 그대로 반환
     return {"recommendation": row}
 
 
