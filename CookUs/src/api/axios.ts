@@ -2,7 +2,6 @@ import axios, { AxiosHeaders } from 'axios'
 import { getAccessToken, setAccessToken, clearAccessToken } from './session'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
 })
 
@@ -32,7 +31,7 @@ api.interceptors.response.use(
       try {
         isRefreshing = true
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/refresh`,
+          `/auth/refresh`,
           {},
           { withCredentials: true }
         )
