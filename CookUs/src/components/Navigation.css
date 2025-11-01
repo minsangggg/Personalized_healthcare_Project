@@ -1,0 +1,8 @@
+.nav-wrap{ display:flex; flex-direction:column; }
+.nav-row{ display:flex; justify-content:center; align-items:flex-end; gap:0; height:45px; }
+.nav-btn{
+  appearance:none; background:none; border:none; cursor:pointer; padding:10px 14px 12px; height:45px;
+  font-weight:1000; color:#7a5a3e; position:relative; white-space:nowrap;
+}
+.nav-btn.active{ color:#3b2a1d; }
+.nav-btn.active::after{ content:""; position:absolute; left:12px; right:12px; bottom:6px; height:3px; border-radius:2px; background:var(--accent); }

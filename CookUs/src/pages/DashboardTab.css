@@ -1,0 +1,12 @@
+.badge-list { display:flex; flex-wrap:wrap; gap:8px; margin: 4px 0 12px; }
+.badge { font-size: 12px; border-radius: 999px; padding: 4px 10px; background: #f3f4f6; border: 1px solid #e5e7eb; }
+.badge.gold { background:#fef3c7; border-color:#fde68a; }
+.badge.mint { background:#ecfdf5; border-color:#d1fae5; }
+.badge.beige{ background:#fff7ed; border-color:#ffedd5; }
+
+.bar-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
+.bar-item { display:grid; grid-template-columns: 120px 1fr 56px; gap:10px; align-items:center; }
+.bar-label { font-size:13px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-track { height:12px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:999px; overflow:hidden; }
+.bar-fill { height:100%; background:rgba(16,185,129,.5); }
+.bar-val { font-size:13px; text-align:right; opacity:.8; }

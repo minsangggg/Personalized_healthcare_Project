@@ -1,0 +1,97 @@
+.fridge-page{ height:100%; display:grid; grid-template-rows:1fr; overflow:hidden; }
+.fridge-wrap{ min-height:0; overflow:auto; }
+
+.hero-one{
+  height:100%;
+  background:#fffdf4;
+  display:grid;
+  grid-template-rows:auto auto auto 1fr auto auto;
+  justify-items:center; text-align:center; row-gap:10px; padding: 20px;
+}
+
+.hero-one .badge{
+  margin-top:4px; background:#ffe6b0; color:#7b4e2f; border:1px solid #f3d697;
+  font-weight:900; padding:6px 10px; border-radius:999px;
+}
+.hero-one .title{ font-size:28px; margin:6px 0 4px; color:#6c3d24; line-height:1.22 }
+.hero-one .desc{ color:#7a6756; font-size:15px; }
+
+.hero-one .counter{ font-weight:900; color:#5a3b2a; }
+.hero-one .actions{ display:flex; gap:10px; padding-bottom:10px }
+.hero-one .btn{ min-width:120px }
+
+.app-frame{ position: relative; }
+.inner-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:grid;
+  place-items:center;
+  z-index: 5;
+}
+
+.rec-modal{
+  width:min(420px, 92vw);
+  max-height:86vh;
+  overflow:auto;
+  position:relative;
+}
+
+/* Wider modals for About/FAQ within app-frame */
+.rec-modal.modal-wide{ width:96% !important; max-height:88vh !important; }
+.rec-modal.modal-full{ width:98% !important; height:80vh !important; max-height:none !important; }
+
+.rec-loading{
+  display:grid; place-items:center; gap:10px; padding:20px 0;
+}
+.spinner{
+  width:28px; height:28px; border:3px solid rgba(0,0,0,.08);
+  border-top-color:#F39C3A; border-radius:50%;
+  animation: spin .9s linear infinite;
+}
+@keyframes spin{ to{ transform: rotate(360deg) } }
+.rec-loading-text{ color:#5b3a22; font-weight:800; }
+
+.rec-grid{
+  display:grid; gap:10px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 420px){
+  .rec-grid{ grid-template-columns: 1fr 1fr; }
+}
+.rec-card{ min-width:0 }
+
+/* === 냉장고 + 서빙건전지 겹치기 === */
+.illust-wrap{
+  position: relative;
+  width: min(320px, 100%);
+  aspect-ratio: 1/1;
+  margin: 20px auto 40px;
+  overflow: visible;
+}
+
+.fridge-illust{
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.fridge-illust svg{
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: scale(1.35);
+}
+
+/* 겹칠 이미지(앞단) */
+.illust.battery{
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translate(4%, 2%) scale(0.9);
+  transform-origin: center;
+}
