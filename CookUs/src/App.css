@@ -49,6 +49,11 @@
   padding: 3px;
 }
 
+/* When showing dashboard, contain scroll inside the dashboard tab */
+.app-main--dashboard{
+  overflow:hidden;
+}
+
 .app-tab{
   height:100%;
   background:#fffdf4;

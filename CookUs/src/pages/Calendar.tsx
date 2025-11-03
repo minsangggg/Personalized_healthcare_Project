@@ -248,7 +248,7 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
                     <button
                       key={`${d.getTime()}-${i}`}
                       className={classes}
-                      onClick={() => setSelectedDay(dayStr)}
+                      onClick={() => { if (!inMonth) { setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) } setSelectedDay(dayStr) }}
                       title={count > 0 ? `${count}개 기록` : undefined}
                     >
                       <span className="dnum">{d.getDate()}</span>

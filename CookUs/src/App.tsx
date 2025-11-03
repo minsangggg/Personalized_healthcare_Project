@@ -64,7 +64,7 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        <main className="app-main">
+        <main className={`app-main ${tab === 'dashboard' ? 'app-main--dashboard' : ''}`}>
           {tab === 'fridge' && (
             <Fridge isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
           )}

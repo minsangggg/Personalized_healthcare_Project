@@ -4,7 +4,13 @@ import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
 
-type Props = { recipe: Recipe; onClose: () => void; showSelect?: boolean; cooked?: boolean }
+type Props = {
+  recipe: Recipe
+  onClose: () => void
+  showSelect?: boolean
+  cooked?: boolean
+  onSelectedChange?: (recipeId: number, selected: boolean) => void
+}
 
 function FramePortal({ children }: { children: React.ReactNode }) {
   const host = document.querySelector('.app-frame')
@@ -12,7 +18,7 @@ function FramePortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, host)
 }
 
-export default function RecipeDetailModal({ recipe, onClose, showSelect=true, cooked=false }: Props){
+export default function RecipeDetailModal({ recipe, onClose, showSelect=true, cooked=false, onSelectedChange }: Props){
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
@@ -52,6 +58,10 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
       setSelecting(false)
     }
   }
+
+  useEffect(() => {
+    onSelectedChange?.(recipe.recipe_id, selected)
+  }, [recipe.recipe_id, selected, onSelectedChange])
 
   const steps = toLines((recipe as any).step_text)
   const tips  = toLines((recipe as any).step_tip)

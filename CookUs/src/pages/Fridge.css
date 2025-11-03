@@ -59,7 +59,22 @@
 @media (min-width: 420px){
   .rec-grid{ grid-template-columns: 1fr 1fr; }
 }
-.rec-card{ min-width:0 }
+.rec-card{
+  min-width:0;
+  position:relative;
+}
+.rec-note{
+  position:absolute;
+  top:6px;
+  right:6px;
+  background:rgba(90,59,42,.85);
+  color:#fff9ed;
+  font-size:11px;
+  font-weight:700;
+  padding:3px 7px;
+  border-radius:999px;
+  pointer-events:none;
+}
 
 /* === 냉장고 + 서빙건전지 겹치기 === */
 .illust-wrap{

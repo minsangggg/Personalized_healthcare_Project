@@ -6,11 +6,14 @@ type Props = {
   recipe: Recipe
   onDetail: () => void
   onDelete?: () => Promise<void> | void // 옵션: 삭제 콜백이 있으면 X 버튼 노출
+  onSelect?: () => void
+  selected?: boolean
 }
 
-export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
+export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selected = false }: Props){
   const [deleting, setDeleting] = useState(false)
   const top3 = top3Ingredients((recipe as any).ingredient_full)
+  const selectable = typeof onSelect === 'function'
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -24,8 +27,23 @@ export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!selectable || !onSelect) return
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onSelect()
+    }
+  }
+
   return (
-    <div className="rc-card">
+    <div
+      className={`rc-card${selectable ? ' selectable' : ''}${selected ? ' selected' : ''}`}
+      onClick={selectable ? onSelect : undefined}
+      role={selectable ? 'button' : undefined}
+      tabIndex={selectable ? 0 : undefined}
+      aria-pressed={selectable ? selected : undefined}
+      onKeyDown={handleKeyDown}
+    >
       <h3 className="rc-title clamp-2">{(recipe as any).recipe_nm_ko}</h3>
 
       <div className="rc-meta">
@@ -40,7 +58,7 @@ export default function RecipeCard({ recipe, onDetail, onDelete }: Props){
       </div>
 
       <div className="rc-foot">
-        <button className="btn primary" onClick={onDetail}>자세히 보기</button>
+        <button className="btn primary" onClick={(e)=>{ e.stopPropagation(); onDetail(); }}>자세히 보기</button>
         {onDelete && (
           <button
             className="btn danger outline"

@@ -11,6 +11,25 @@
   min-width:0;            /* 축약 폭 대응 */
 }
 
+.rc-card.selectable{
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.rc-card.selectable:hover{
+  transform:translateY(-1px);
+}
+
+.rc-card.selectable:focus-visible{
+  outline:2px solid #F39C3A;
+  outline-offset:3px;
+}
+
+.rc-card.selected{
+  border-color:#F39C3A;
+  box-shadow:0 0 0 3px rgba(243,156,58,.25), 0 8px 20px rgba(0,0,0,.08);
+}
+
 .rc-title{
   margin:0;
   color:#5b3a22;
