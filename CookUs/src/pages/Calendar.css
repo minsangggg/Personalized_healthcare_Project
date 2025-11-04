@@ -88,10 +88,10 @@
 
 /* 캘린더 그리드 */
 .calendar {
-  border: 1px solid #e5e7eb;
+  border: none;
   border-radius: 14px;
   overflow: hidden;
-  background: #fff;
+  background: #fffdf4;
   width: 100%;
   height: 360px;
 }
@@ -104,9 +104,10 @@
   padding: 10px 0;
   text-align: center;
   font-weight: 600;
-  background: #fafafa;
-  border-bottom: 1px solid #e5e7eb;
+  background: #e0c47b;
+  border-bottom: 1px solid #e0c47b;
   color:#5a3b2a;
+  border-radius: 15px;
 }
 
 .calendar .cell.day {
@@ -117,8 +118,9 @@
   aspect-ratio: 1 / 1;
   border: 0;
   outline: none;
-  border-right: 1px solid #f1f3f5;
-  border-bottom: 1px solid #f1f3f5;
+  border-right: 1px solid #fff1c4;
+  border-bottom: 1px solid #fff1c4;
+  border-radius: 20px;
   background: #fff;
   text-align: left;
   padding: 18px;
