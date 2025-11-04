@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
+import TimerModal, { TimerInlinePanel } from './TimerModal'
 
 type Props = {
   recipe: Recipe
@@ -10,6 +11,7 @@ type Props = {
   showSelect?: boolean
   cooked?: boolean
   onSelectedChange?: (recipeId: number, selected: boolean) => void
+  showTimer?: boolean
 }
 
 function FramePortal({ children }: { children: React.ReactNode }) {
@@ -18,10 +20,11 @@ function FramePortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, host)
 }
 
-export default function RecipeDetailModal({ recipe, onClose, showSelect=true, cooked=false, onSelectedChange }: Props){
+export default function RecipeDetailModal({ recipe, onClose, showSelect=true, cooked=false, onSelectedChange, showTimer=true }: Props){
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [timerOpen, setTimerOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -114,8 +117,18 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
             </section>
           )}
 
+          {/* 인라인 타이머 패널: 모달 본문 하단에 표시되어 내용 가림 최소화 */}
+          {showTimer && timerOpen && (
+            <section className="rec-sec" onClick={(e)=>e.stopPropagation()}>
+              <TimerInlinePanel onClose={() => setTimerOpen(false)} defaultMinutes={Number((recipe as any).cooking_time) || undefined} />
+            </section>
+          )}
+
           <div className="rec-foot">
             <button className="btn ghost" onClick={onClose}>닫기</button>
+            {showTimer && (
+              <button className="btn ghost small" onClick={() => setTimerOpen(true)}>타이머</button>
+            )}
             {showSelect && (
               <button
                 className="btn primary"
@@ -128,6 +141,7 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
           </div>
         </div>
       </div>
+      {/* 기존 오버레이 모달은 사용하지 않고, 인라인 패널만 사용 */}
     </FramePortal>
   )
 }

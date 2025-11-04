@@ -115,6 +115,7 @@ export default function Fridge({ isLoggedIn, onRequireLogin }: Props) {
             <RecipeDetailModal
               recipe={detail}
               onClose={() => setDetail(null)}
+              showTimer={false}
               onSelectedChange={(recipeId, isSelected) => {
                 if (isSelected) markRecipesSelected([recipeId])
               }}
