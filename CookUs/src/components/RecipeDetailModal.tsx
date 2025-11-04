@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
-import TimerModal, { TimerInlinePanel } from './TimerModal'
+import { TimerInlinePanel } from './TimerModal'
 
 type Props = {
   recipe: Recipe
