@@ -149,20 +149,16 @@ function DashboardInner({ userName, onRequireLogin }: { userName?: string; onReq
   const lvlSeries = useMemo(() => {
     const toPct = (n: number, t: number) => (t ? Math.round((n / t) * 1000) / 10 : 0)
     const lows: number[] = []
-    const mids: number[] = []
     const highs: number[] = []
     for (const w of levelWeekly as any[]) {
       const low = Number((w as any)['하'] ?? (w as any).low ?? 0)
-      const mid = Number((w as any)['중'] ?? (w as any).mid ?? 0)
       const high = Number((w as any)['상'] ?? (w as any).high ?? 0)
-      const t = Number((w as any).total ?? (low + mid + high))
+      const t = Number((w as any).total ?? (low + high))
       lows.push(toPct(low, t))
-      mids.push(toPct(mid, t))
       highs.push(toPct(high, t))
     }
     return [
       { name: '하', data: lows },
-      { name: '중', data: mids },
       { name: '상', data: highs },
     ]
   }, [levelWeekly])
@@ -200,7 +196,8 @@ function DashboardInner({ userName, onRequireLogin }: { userName?: string; onReq
     chart: { type: 'bar', stacked: true, stackType: '100%', toolbar: { show: false }, foreColor: '#3b2a1d' },
     plotOptions: { bar: { horizontal: false, columnWidth: '38%', borderRadius: 6 } },
     dataLabels: { enabled: false },
-    colors: ['#9FD3C7', '#F8CF61', '#8C7AE6'],
+    // 두 시리즈(하, 상) 색상만 사용
+    colors: ['#9FD3C7', '#8C7AE6'],
     grid: { borderColor: '#e9e2d8', strokeDashArray: 4 },
     xaxis: { categories: (levelWeekly as any[]).map((w: any) => w.week), labels: { rotate: -10, offsetY: 2, style: { fontSize: '11px' } }, axisBorder: { show: false }, axisTicks: { show: false } },
     yaxis: { max: 100, min: 0, decimalsInFloat: 0, labels: { formatter: (v) => `${Math.round(Number(v))}%` }, axisBorder: { show: false }, axisTicks: { show: false } },
