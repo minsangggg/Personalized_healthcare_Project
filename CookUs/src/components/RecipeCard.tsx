@@ -1,6 +1,7 @@
 import type { Recipe } from '../api/recipe'
 import './RecipeCard.css'
 import { useState } from 'react'
+import { buildShortsOpenUrl } from '../api/shorts'
 
 type Props = {
   recipe: Recipe
@@ -44,7 +45,19 @@ export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selec
       aria-pressed={selectable ? selected : undefined}
       onKeyDown={handleKeyDown}
     >
-      <h3 className="rc-title clamp-2">{(recipe as any).recipe_nm_ko}</h3>
+      <h3 className="rc-title clamp-2" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
+        <span>{(recipe as any).recipe_nm_ko}</span>
+        <a
+          href={buildShortsOpenUrl((recipe as any).recipe_nm_ko)}
+          target="_blank"
+          rel="noreferrer"
+          className="btn sm"
+          onClick={(e)=>e.stopPropagation()}
+          title="YouTube Shorts 열기"
+        >
+          Shorts
+        </a>
+      </h3>
 
       <div className="rc-meta">
         {(recipe as any).level_nm && (

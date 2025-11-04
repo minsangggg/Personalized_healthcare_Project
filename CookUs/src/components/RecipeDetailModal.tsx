@@ -4,6 +4,7 @@ import api from '../api/axios'
 import type { Recipe } from '../api/recipe'
 import './RecipeDetailModal.css'
 import { TimerInlinePanel } from './TimerModal'
+import { buildShortsOpenUrl } from '../api/shorts'
 
 type Props = {
   recipe: Recipe
@@ -80,7 +81,18 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
               {selected && <span className="chip ok">선택됨</span>}
               {cooked && <span className="chip cooked">요리함</span>}
             </h3>
-            <button className="rec-x" onClick={onClose}>×</button>
+            <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 }}>
+              <a
+                href={buildShortsOpenUrl(recipe.recipe_nm_ko)}
+                target="_blank"
+                rel="noreferrer"
+                className="btn sm"
+                title="YouTube Shorts 열기"
+              >
+                Shorts
+              </a>
+              <button className="rec-x" onClick={onClose}>×</button>
+            </div>
           </div>
 
           {/* 인앱 안내 영역: 캘린더 탭에서 열렸다면(showSelect=false) 노출하지 않음 */}

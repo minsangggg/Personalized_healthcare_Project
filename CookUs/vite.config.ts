@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
         '/recommendations': { target, changeOrigin: true },
         '/fridge': { target, changeOrigin: true },
         '/ingredients': { target, changeOrigin: true },
+        '/shorts': { target, changeOrigin: true },
         '/faq': { target, changeOrigin: true },
       },
     },
