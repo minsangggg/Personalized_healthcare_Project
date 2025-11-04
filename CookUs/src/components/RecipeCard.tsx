@@ -6,7 +6,7 @@ import { buildShortsOpenUrl } from '../api/shorts'
 type Props = {
   recipe: Recipe
   onDetail: () => void
-  onDelete?: () => Promise<void> | void // 옵션: 삭제 콜백이 있으면 X 버튼 노출
+  onDelete?: () => Promise<void> | void // 옵션: 대시보드 등에서는 X 버튼 표시
   onSelect?: () => void
   selected?: boolean
 }
@@ -19,7 +19,7 @@ export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selec
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!onDelete) return
-    if (!confirm('이 항목을 삭제하시겠어요?')) return
+    if (!confirm('이 레시피를 삭제하시겠어요?')) return
     try {
       setDeleting(true)
       await onDelete()
@@ -47,16 +47,6 @@ export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selec
     >
       <h3 className="rc-title clamp-2" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
         <span>{(recipe as any).recipe_nm_ko}</span>
-        <a
-          href={buildShortsOpenUrl((recipe as any).recipe_nm_ko)}
-          target="_blank"
-          rel="noreferrer"
-          className="btn sm"
-          onClick={(e)=>e.stopPropagation()}
-          title="YouTube Shorts 열기"
-        >
-          Shorts
-        </a>
       </h3>
 
       <div className="rc-meta">
@@ -71,6 +61,16 @@ export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selec
       </div>
 
       <div className="rc-foot">
+        <a
+          href={buildShortsOpenUrl((recipe as any).recipe_nm_ko)}
+          target="_blank"
+          rel="noreferrer"
+          className="btn sm"
+          onClick={(e)=>e.stopPropagation()}
+          title="YouTube Shorts 열기"
+        >
+          Shorts
+        </a>
         <button className="btn primary" onClick={(e)=>{ e.stopPropagation(); onDetail(); }}>자세히 보기</button>
         {onDelete && (
           <button
@@ -80,7 +80,7 @@ export default function RecipeCard({ recipe, onDetail, onDelete, onSelect, selec
             aria-label="삭제"
             title="삭제"
           >
-            {deleting ? '삭제 중…' : '×'}
+            {deleting ? '삭제 중…' : 'X'}
           </button>
         )}
       </div>
@@ -117,3 +117,4 @@ function top3Ingredients(raw: unknown): string[] {
 }
 
 function clean(s: string){ return String(s || '').replace(/\s+/g, ' ').trim() }
+
