@@ -322,11 +322,14 @@ function DashboardInner({ userName, onRequireLogin }: { userName?: string; onReq
   )
 }
 
-function diffText(d?: number | null) {
+function diffText(d?: number | string | null) {
   if (d == null) return '-'
-  if (d < 1.5) return '하'
-  if (d < 2.5) return '중'
-  return '상'
+  const map: Record<string, number> = { '하': 1, '중': 2, '상': 3 }
+  const n = typeof d === 'string' ? (map[d] ?? Number(d)) : d
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '-'
+  // 이 프로젝트에서는 난이도에서 '중'을 사용하지 않으므로 이진 표기
+  return v < 2 ? '하' : '상'
 }
 
 function formatMonthInput(d: Date) {
