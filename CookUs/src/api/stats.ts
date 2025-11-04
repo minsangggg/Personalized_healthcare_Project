@@ -13,7 +13,8 @@ export type CategoryRow = { label: string; count: number; ratio?: number }
 export type ProgressTrendWeek = { week: string; rate: number; cooked: number; goal: number }
 export type ProgressTrend = { monthRate: number; weeks: ProgressTrendWeek[] }
 
-export type LevelWeekly = Array<{ week: string; 상: number; 중: number; 하: number; total: number }>
+// '중'은 백엔드에서 제외됨. 하/상만 제공.
+export type LevelWeekly = Array<{ week: string; 상: number; 하: number; total: number }>
 
 export async function getProgress(signal?: AbortSignal, selected?: string) {
   const { data } = await api.get<ProgressStat>('/me/stats/progress', {
