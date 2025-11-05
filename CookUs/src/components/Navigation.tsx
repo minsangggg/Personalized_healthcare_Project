@@ -42,7 +42,7 @@ export default function Navigation({
       {/* 탭 위 가로선 + 탭 */}
       <div className="tab-sep-line" />
       <nav className="tabbar">
-        {(['fridge','calendar','dashboard','mypage'] as TabKey[]).map(t => (
+        {(['fridge','calendar','dashboard','cooktest','nutrition','mypage'] as TabKey[]).map(t => (
           <button
             key={t}
             className={`tab ${current === t ? 'active' : ''}`}
@@ -50,7 +50,16 @@ export default function Navigation({
           >
             {t === 'fridge' ? '냉장고' :
              t === 'calendar' ? '캘린더' :
-             t === 'dashboard' ? '대시보드' : '마이페이지'}
+             t === 'dashboard' ? '대시보드' :
+             t === 'cooktest' ? '쿡테스트' :
+             t === 'nutrition' ? '영양관리' : (
+               <span className="tab-icon" aria-label="마이페이지" title="마이페이지">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                   <circle cx="12" cy="7" r="4" />
+                 </svg>
+               </span>
+             )}
           </button>
         ))}
       </nav>

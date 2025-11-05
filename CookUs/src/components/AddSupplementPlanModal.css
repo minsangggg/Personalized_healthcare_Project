@@ -1,0 +1,16 @@
+.form-vert select{
+  width:100%;
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:14px;
+  background:#fff;
+  color:#3b2a1d;
+}
+.form-vert select:focus{
+  outline:none;
+  border-color:#F39C3A;
+  box-shadow:0 0 0 3px rgba(243,156,58,.18);
+}
+.form-vert select:disabled{ opacity:.6; cursor:not-allowed }
+
