@@ -79,6 +79,10 @@ export const nutritionAPI = {
   async deletePlan(planId: number): Promise<void> {
     await api.delete(`/nutrition/plans/${planId}`)
   },
+  async updatePlan(planId: number, name: string, time_slot: TimeSlot): Promise<SupplementPlan> {
+    const { data } = await api.put(`/nutrition/plans/${planId}`, { supplement_name: name, time_slot })
+    return data
+  },
   async getMonthStatus(ym: string): Promise<DayStatus[]> {
     const { data } = await api.get('/nutrition/calendar', { params: { month: ym } })
     return Array.isArray(data) ? data : []

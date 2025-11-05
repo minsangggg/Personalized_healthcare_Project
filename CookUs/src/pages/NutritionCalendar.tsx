@@ -41,6 +41,7 @@ export default function NutritionCalendar({ month, onMonthChange, monthStatus, o
             const dayStr = ymd(d)
             const inMonth = isSameMonth(d)
             const stat = monthStatus.get(dayStr)
+            const isFuture = new Date(d.getFullYear(), d.getMonth(), d.getDate()) > new Date(now.getFullYear(), now.getMonth(), now.getDate())
             const classes = [
               'cell','day',
               inMonth ? 'cur' : 'dim',
@@ -57,7 +58,7 @@ export default function NutritionCalendar({ month, onMonthChange, monthStatus, o
               >
                 <span className="dnum">{d.getDate()}</span>
                 {/* status indicator color dot */}
-                {stat && <span className="dot" aria-hidden style={{ background: dotColor(stat) }} />}
+                {stat && <span className="dot" aria-hidden style={{ background: dotColor(stat, isFuture) }} />}
               </button>
             )
           })}
@@ -103,7 +104,8 @@ function colorOf(stat?: DayStatus) {
   return 'has'
 }
 
-function dotColor(stat: DayStatus) {
+function dotColor(stat: DayStatus, isFuture: boolean) {
+  if (isFuture) return '#9ca3af' // gray for future dates
   if (stat.taken === 0) return '#ef4444' // red
   if (stat.taken === stat.total) return '#16a34a' // green
   return '#f59e0b' // yellow

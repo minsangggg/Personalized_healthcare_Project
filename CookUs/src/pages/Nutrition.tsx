@@ -11,29 +11,25 @@ type Props = {
 }
 
 export default function Nutrition({ isLoggedIn, onRequireLogin }: Props) {
-  const [plans, setPlans] = useState<SupplementPlan[]>([])
+  // plans list is not needed in UI (daily fetch provides items)
   const [monthStatus, setMonthStatus] = useState<Map<string, DayStatus>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [recLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
+  const [editPlan, setEditPlan] = useState<SupplementPlan | null>(null)
   const [showRecommender, setShowRecommender] = useState(false)
   const [month, setMonth] = useState(() => { const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [daily, setDaily] = useState<DayPlan[] | null>(null)
 
-  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 
   const load = async () => {
-    if (!isLoggedIn) { setPlans([]); setMonthStatus(new Map()); return }
+    if (!isLoggedIn) { setMonthStatus(new Map()); return }
     setLoading(true); setError(null)
     try {
-      const [p, s] = await Promise.all([
-        nutritionAPI.listPlans(),
-        nutritionAPI.getMonthStatus(ym(month)),
-      ])
-      setPlans(p)
+      const s = await nutritionAPI.getMonthStatus(ym(month))
       const map = new Map<string, DayStatus>()
       for (const row of s) map.set(row.date, row)
       setMonthStatus(map)
@@ -55,12 +51,20 @@ export default function Nutrition({ isLoggedIn, onRequireLogin }: Props) {
     setShowRecommender(true)
   }
 
+  const isFuture = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const today = new Date()
+    const t = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    return dd > t
+  }
+
   return (
     <section className="app-tab nutrition">
       <div className="nt-header">
         <h2 className="title">나의 영양관리</h2>
         <div className="actions">
-          <button className="btn ghost" onClick={fetchRecs} disabled={recLoading}>{recLoading ? '추천 중…' : '영양제 추천받으러 가보기'}</button>
+          <button className="btn ghost" onClick={fetchRecs} disabled={recLoading}>{recLoading ? '추천 중…' : '영양제 추천받으러 가기'}</button>
         </div>
       </div>
 
@@ -79,25 +83,43 @@ export default function Nutrition({ isLoggedIn, onRequireLogin }: Props) {
               selectedDay={selectedDay}
             />
           </div>
-          <div className="card">
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div className="card daily-card">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: '7px'}}>
               <h3 className="sec-title" style={{ margin:0 }}>{selectedDay ? `${selectedDay} 체크` : '하루 체크'}</h3>
               <button className="btn" onClick={() => isLoggedIn ? setShowAdd(true) : onRequireLogin()}>영양제 등록</button>
             </div>
             {!selectedDay && <div className="muted">날짜를 선택해 주세요.</div>}
             {selectedDay && (
-              <div className="intake-list">
-                {(daily ?? []).map(dp => (
-                  <label key={dp.plan_id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 0' }}>
-                    <span>{dp.supplement_name} <span style={{ color:'#777', fontSize:12 }}>· {dp.time_slot}</span></span>
-                    <input type="checkbox" checked={dp.taken} onChange={async (e)=>{
-                      await nutritionAPI.setTaken(dp.plan_id, selectedDay!, e.target.checked)
+              <div className="check-list-wrap">
+                <div className="check-list">
+                  {(daily ?? []).map(dp => (
+                    <div key={dp.plan_id} className={`check-item ${dp.taken ? 'on' : ''} ${isFuture(selectedDay) ? 'disabled' : ''}`}>
+                      <div className="info">
+                        <div className="name">{dp.supplement_name}</div>
+                        <div className="slot">{dp.time_slot}</div>
+                      </div>
+                    <button className={`chkbox ${dp.taken ? 'on' : ''}`} disabled={isFuture(selectedDay)} onClick={async ()=>{
+                      // optimistic toggle
+                      setDaily(prev => prev ? prev.map(p => p.plan_id === dp.plan_id ? { ...p, taken: !dp.taken } : p) : prev)
+                      await nutritionAPI.setTaken(dp.plan_id, selectedDay!, !dp.taken)
                       await load()
                       await loadDaily(selectedDay!)
-                    }} />
-                  </label>
+                    }} aria-pressed={dp.taken} aria-label={dp.taken ? '완료' : '체크'}>{dp.taken ? '✓' : ''}</button>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button className="icon-btn small" title="수정" onClick={()=>{
+                        setEditPlan({ plan_id: dp.plan_id, supplement_name: dp.supplement_name, time_slot: dp.time_slot })
+                        setShowAdd(true)
+                      }}>✎</button>
+                      <button className="icon-btn small" title="삭제" onClick={async ()=>{
+                        await nutritionAPI.deletePlan(dp.plan_id)
+                        await load()
+                        await loadDaily(selectedDay!)
+                      }}>🗑️</button>
+                    </div>
+                  </div>
                 ))}
                 {(!daily || daily.length === 0) && <div className="muted">등록된 영양제가 없어요. 상단에서 등록해 보세요.</div>}
+                </div>
               </div>
             )}
           </div>
@@ -106,8 +128,9 @@ export default function Nutrition({ isLoggedIn, onRequireLogin }: Props) {
 
       {showAdd && (
         <AddSupplementPlanModal
+          plan={editPlan || undefined}
           onClose={() => setShowAdd(false)}
-          onAdded={() => { setShowAdd(false); load() }}
+          onAdded={() => { setShowAdd(false); setEditPlan(null); load(); if (selectedDay) loadDaily(selectedDay) }}
         />
       )}
 
@@ -118,8 +141,4 @@ export default function Nutrition({ isLoggedIn, onRequireLogin }: Props) {
       )}
     </section>
   )
-}
-
-function fmt(s: string) {
-  try { return new Date(s).toLocaleString() } catch { return s }
 }

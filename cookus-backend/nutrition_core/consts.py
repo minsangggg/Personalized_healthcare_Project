@@ -143,3 +143,13 @@ FRIENDLY_ORDER = [
     "Vitamin A", "Vitamin B12", "Vitamin E", "Vitamin K",
 ]
 
+# Exclude kid-targeted products for non-teen age bands
+KID_EXCLUDE_PATTERNS = [
+    r"키즈",
+    r"우리\s*아이",
+    r"\b아이\b",
+    r"어린이",
+    r"유아|베이비",
+    r"\bkids?\b|children|child",
+]
+

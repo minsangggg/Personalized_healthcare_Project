@@ -61,7 +61,7 @@ def list_plans(current_user: str = Depends(get_current_user)):
       """
       SELECT plan_id, supplement_name, time_slot
       FROM supplement_plans
-      WHERE user_id=%s
+      WHERE user_id=%s AND (deleted_at IS NULL)
       ORDER BY created_at DESC
       """,
       (uid,)
@@ -93,8 +93,33 @@ def create_plan(body: dict, current_user: str = Depends(get_current_user)):
 def delete_plan(plan_id: int, current_user: str = Depends(get_current_user)):
   uid = current_user
   with get_conn() as conn, conn.cursor() as cur:
-    cur.execute("DELETE FROM supplement_plans WHERE user_id=%s AND plan_id=%s", (uid, plan_id))
+    # Soft delete (keep row for historical checks)
+    cur.execute("UPDATE supplement_plans SET deleted_at=NOW() WHERE user_id=%s AND plan_id=%s", (uid, plan_id))
   return {"ok": True}
+
+
+@router.put('/nutrition/plans/{plan_id}')
+def update_plan(plan_id: int, body: dict, current_user: str = Depends(get_current_user)):
+  uid = current_user
+  name = (body.get('supplement_name') or '').strip()
+  slot = (body.get('time_slot') or '').strip()
+  if not name or not slot:
+    raise HTTPException(400, 'invalid payload')
+  with get_conn() as conn, conn.cursor() as cur:
+    # Try update; if unique conflict desired, you can first check duplications
+    cur.execute(
+      """
+      UPDATE supplement_plans
+      SET supplement_name=%s, time_slot=%s
+      WHERE user_id=%s AND plan_id=%s
+      """,
+      (name, slot, uid, plan_id)
+    )
+    cur.execute("SELECT plan_id, supplement_name, time_slot FROM supplement_plans WHERE user_id=%s AND plan_id=%s", (uid, plan_id))
+    row = cur.fetchone()
+    if not row:
+      raise HTTPException(404, 'not found')
+    return row
 
 
 @router.get('/nutrition/calendar')
@@ -103,6 +128,16 @@ def month_status(month: str, current_user: str = Depends(get_current_user)):
     raise HTTPException(400, 'invalid month')
   uid = current_user
   with get_conn() as conn, conn.cursor() as cur:
+    # Determine the first month the user registered any supplement (including soft-deleted)
+    cur.execute("SELECT MIN(created_at) AS first_created FROM supplement_plans WHERE user_id=%s", (uid,))
+    r = cur.fetchone()
+    first_created = r and r.get('first_created')
+    if not first_created:
+      return []  # no plans at all -> show nothing
+    # Compare requested month with the first registration month (YYYY-MM)
+    first_ym = f"{first_created.year:04d}-{first_created.month:02d}"
+    if month < first_ym:
+      return []
     sql = (
       """
       WITH RECURSIVE d AS (
@@ -111,7 +146,7 @@ def month_status(month: str, current_user: str = Depends(get_current_user)):
         SELECT dt + INTERVAL 1 DAY FROM d WHERE dt < LAST_DAY(CONCAT(%s, '-01'))
       )
       SELECT d.dt AS date,
-             (SELECT COUNT(*) FROM supplement_plans p WHERE p.user_id=%s) AS total,
+             (SELECT COUNT(*) FROM supplement_plans p WHERE p.user_id=%s AND p.deleted_at IS NULL) AS total,
              COALESCE(SUM(CASE WHEN c.taken=1 THEN 1 ELSE 0 END), 0) AS taken
       FROM d
       LEFT JOIN supplement_checks c
@@ -130,18 +165,24 @@ def month_status(month: str, current_user: str = Depends(get_current_user)):
 def daily(date: str, current_user: str = Depends(get_current_user)):
   uid = current_user
   with get_conn() as conn, conn.cursor() as cur:
+    # Include active plans + any plans that have a check on the requested date (even if soft-deleted)
     sql = (
       """
+      WITH base AS (
+        SELECT plan_id FROM supplement_plans WHERE user_id=%s AND deleted_at IS NULL
+        UNION
+        SELECT DISTINCT plan_id FROM supplement_checks WHERE user_id=%s AND date=%s
+      )
       SELECT p.plan_id, p.supplement_name, p.time_slot,
              COALESCE(c.taken, 0) AS taken
-      FROM supplement_plans p
+      FROM base b
+      JOIN supplement_plans p ON p.plan_id=b.plan_id AND p.user_id=%s
       LEFT JOIN supplement_checks c
-        ON c.user_id=p.user_id AND c.plan_id=p.plan_id AND c.date=%s
-      WHERE p.user_id=%s
+        ON c.user_id=%s AND c.plan_id=p.plan_id AND c.date=%s
       ORDER BY p.created_at DESC
       """
     )
-    cur.execute(sql, (date, uid))
+    cur.execute(sql, (uid, uid, date, uid, uid, date))
     return cur.fetchall()
 
 

@@ -1,9 +1,10 @@
 import os
 import json
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Iterable
 import pandas as pd
-from .consts import TEXT_COLS, OPTIONAL_COLS, GOAL_TO_CATS, INTAKE_TIPS
+from .consts import TEXT_COLS, OPTIONAL_COLS, GOAL_TO_CATS, INTAKE_TIPS, KID_EXCLUDE_PATTERNS
 from .text import read_csv_any, norm, normalize_shape_text
 from .tagging import match_categories, base_filter_categories
 
@@ -143,6 +144,12 @@ class NutritionEngine:
         results: List[Dict[str, Any]] = []
         if rows is not None:
             filtered = self._filter_by_shapes_rows(rows, shapes or [])
+            # Exclude kid-targeted products for non-teen age bands
+            if age_band != '10대':
+                def is_kid(r: Dict[str, Any]) -> bool:
+                    text = f"{r.get('_name','')} {r.get('_func','')}"
+                    return any(re.search(p, text) for p in KID_EXCLUDE_PATTERNS)
+                filtered = [r for r in filtered if not is_kid(r)]
             for goal in goals or []:
                 cats = GOAL_TO_CATS.get(goal, [])
                 if sex.upper().startswith('F') and pregnant_possible and 'Folate' not in cats:
@@ -175,6 +182,11 @@ class NutritionEngine:
         # Fallback to DataFrame flow if rows not available
         if df is not None:
             df_filtered = self._filter_by_shapes_df(df, shapes or [])
+            if age_band != '10대':
+                def has_kid(row) -> bool:
+                    text = f"{row.get('_name','')} {row.get('_func','')}"
+                    return any(re.search(p, text) for p in KID_EXCLUDE_PATTERNS)
+                df_filtered = df_filtered[~df_filtered.apply(has_kid, axis=1)]
             from .rank import pick_top_by_category  # local import to avoid hard dep when unused
             for goal in goals or []:
                 cats = GOAL_TO_CATS.get(goal, [])
