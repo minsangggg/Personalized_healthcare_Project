@@ -1,0 +1,94 @@
+/* 앱 프레임 내부에만 깔리는 오버레이 (프레임 밖으로 안 나감) */
+.rec-overlay{
+  position:absolute; inset:0;
+  background:rgba(0,0,0,.35);
+  display:flex; align-items:center; justify-content:center;
+  z-index:2000;
+}
+
+/* 모달 박스: 프레임 크기 이하로 고정 */
+.rec-modal{
+  width:min(420px, 92%);
+  max-height:86%;
+  overflow:auto;
+  box-sizing:border-box;
+
+  background:#fff7e8;
+  border:1px solid #E3C881;
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.6);
+  padding:10px;
+  color:#5b3a22;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+
+/* 헤더 */
+.rec-head{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 12px; margin-bottom:6px;
+  border-bottom:1px solid #E3C881;
+}
+.rec-head h3{ margin:0; font-size:18px; color:#5b3a22; }
+.rec-x{
+  width:32px; height:32px; border-radius:50%;
+  border:1px solid #E3C881; background:#FFF3CF; cursor:pointer;
+  font-size:20px; line-height:28px; color:#5b3a22;
+}
+
+/* 서브 메타 */
+.rec-sub{
+  display:flex; gap:10px; align-items:center;
+  color:#7b4e2d; font-size:12px; padding:0 12px 6px;
+}
+
+/* 섹션 */
+.rec-sec{ margin:14px 12px; }
+.rec-sec h4{ margin:0 0 6px; font-size:14px; color:#5b3a22; }
+.bullets{ margin:0 0 4px 18px; }
+.steps{ margin:0 0 4px 18px; }
+
+/* 풋터 버튼 */
+.rec-foot{
+  display:flex; justify-content:flex-end; gap:8px;
+  padding:10px 12px; border-top:1px solid #E3C881; margin-top:8px;
+}
+
+/* 공통 버튼 톤(앱 전체 톤과 동일) */
+.btn{
+  appearance:none; cursor:pointer;
+  border:1px solid #E3C881; border-radius:10px;
+  background:#FFF3CF; color:#5b3a22; font-weight:800;
+  padding:8px 12px;
+}
+.btn.primary{ background:#F39C3A; border-color:#F39C3A; color:#fff; }
+.btn.ghost{ background:#fff; }
+
+.inline-note {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+.inline-note.ok { border-color: #10b981; background: #ecfdf5; }
+.inline-note.warn { border-color: #f59e0b; background: #fffbeb; }
+.chip.ok {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+.chip.cooked{
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .8rem;
+  background: #fff7d6;
+  color: #7a5a2e;
+  border: 1px solid #f3d38a;
+}
