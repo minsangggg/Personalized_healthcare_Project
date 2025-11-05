@@ -58,7 +58,7 @@ export default function Fridge({ isLoggedIn, onRequireLogin }: Props) {
     <section className="app-tab fri">
       <div className="card hero-one">
         <div className="badge">CookUS</div>
-        <h1 className="title">레시피 마켓</h1>
+        <h1 className="title">슬기로운 레시피 생활</h1>
         <p className="desc">우리랑 요리하자!</p>
 
         {/* 중앙 큰 냉장고 */}

@@ -11,9 +11,11 @@ import LoginDialog from './components/LoginDialog'
 import SignupDialog from './components/SignupDialog'
 
 import { authAPI } from './api/auth'
+import CookTest from './pages/CookTest'
+import Nutrition from './pages/Nutrition'
 
 export type User = { user_id: string; user_name: string }
-export type TabKey = 'fridge' | 'calendar' | 'dashboard' | 'mypage'
+export type TabKey = 'fridge' | 'calendar' | 'dashboard' | 'cooktest' | 'nutrition' | 'mypage'
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>('fridge')
@@ -73,8 +75,16 @@ export default function App() {
             <Calendar isLoggedIn={isLoggedIn} />
           )}
 
+          {tab === 'cooktest' && (
+            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+          )}
+
           {tab === 'dashboard' && (
             <Dashboard isLoggedIn={isLoggedIn} onRequireLogin={requireLogin}/>
+          )}
+
+          {tab === 'nutrition' && (
+            <Nutrition isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
           )}
 
           {tab === 'mypage' && (

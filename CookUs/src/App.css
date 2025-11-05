@@ -25,12 +25,12 @@
 /* Tabs */
 .tabbar{
   height:45px; display:flex; justify-content:center; align-items:flex-end;
-  overflow:auto; scrollbar-width:none;
+  overflow:auto; scrollbar-width:none; max-width:100%;
 }
 .tabbar::-webkit-scrollbar{ display:none }
 .tab{
   position:relative; appearance:none; background:none; border:none; cursor:pointer;
-  padding:10px 14px 12px; height:45px; font-weight:1000; color:#7a5a3e; white-space:nowrap;
+  padding:10px 12px 12px; height:42px; font-weight:900; color:#7a5a3e; white-space:nowrap; font-size:13px;
 }
 .tab + .tab::before{
   content:""; position:absolute; left:0; top:8px; bottom:8px; width:1px;
@@ -38,8 +38,18 @@
 }
 .tab.active{ color:#3b2a1d }
 .tab.active::after{
-  content:""; position:absolute; left:12px; right:12px; bottom:6px; height:3px; border-radius:2px; background:#F39C3A;
+  content:""; position:absolute; left:8px; right:8px; bottom:6px; height:3px; border-radius:2px; background:#F39C3A;
 }
+
+@media (max-width: 480px){
+  .tabbar{ height:40px }
+  .tab{ padding:6px 6px 8px; font-size:12px; height:40px }
+  .tab.active::after{ left:6px; right:6px }
+}
+
+/* Tab icon for My Page */
+.tab .tab-icon{ display:inline-flex; width:20px; height:20px; align-items:center; justify-content:center }
+.tab .tab-icon svg{ width:20px; height:20px; display:block; margin-top: 3px; }
 
 .app-main{
   flex:1 1 auto;
