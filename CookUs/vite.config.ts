@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
         '/ingredients': { target, changeOrigin: true },
         '/shorts': { target, changeOrigin: true },
         '/faq': { target, changeOrigin: true },
+        '/nutrition': { target, changeOrigin: true },
       },
     },
   }
