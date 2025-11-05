@@ -1,50 +1,54 @@
-import React, { useEffect, useMemo, useState, type ComponentType } from "react";
+﻿import React, { useEffect, useMemo, useState, type ComponentType } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { Link } from "react-router-dom";
-import { FaUserCircle, FaCalendarDay, FaUtensils } from "react-icons/fa";
+import { FaUserCircle } from "react-icons/fa";
+import { FiPlus, FiTrash2 } from "react-icons/fi";
 
 import { useAuth } from "./AuthContext";
 import { apiFetch } from "../api/client";
 import VideoBackgroundLayout from "../components/VideoBackgroundLayout";
 
 type StoredRecipe = {
+  recipe_id?: string | number;
+  recommend_id?: number;
   recipe_nm_ko?: string;
   selected_date?: string;
   level_nm?: string;
   cooking_time?: string;
   step_text?: string;
+  action?: number;
 };
 
 const TEXT = {
   nav: {
-    fridge: "\uB0C9\uC7A5\uACE0",
-    calendar: "\uCE98\uB9B0\uB354",
-    dashboard: "\uB300\uC2DC\uBCF4\uB4DC",
-    logout: "\uB85C\uADF8\uC544\uC6C3",
-    login: "\uB85C\uADF8\uC778",
-    myPage: "\uB9C8\uC774\uD398\uC774\uC9C0",
+    fridge: "냉장고",
+    calendar: "캘린더",
+    dashboard: "대시보드",
+    logout: "로그아웃",
+    login: "로그인",
+    myPage: "마이페이지",
   },
-  title: "\uC694\uB9AC \uCE98\uB9B0\uB354",
-  selectedDatePrefix: "\uC120\uD0DD\uD55C \uB0A0\uC9DC:",
-  noRecipes: "\uD574\uB2F9 \uB0A0\uC9DC\uC5D0 \uC800\uC7A5\uB41C \uB808\uC2DC\uD53C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
-  level: "\uB09C\uC774\uB3C4",
-  cookingTime: "\uC870\uB9AC\uC2DC\uAC04",
-  detailButton: "\uC0C1\uC138 \uBCF4\uAE30",
+  title: "요리 캘린더",
+  selectedDatePrefix: "선택한 날짜:",
+  noRecipes: "해당 날짜에 저장된 레시피가 없습니다.",
+  level: "난이도",
+  cookingTime: "조리시간",
+  detailButton: "상세 보기",
   footer: {
     title: "2025 Recipe Market",
-    about: "\uC18C\uAC1C",
-    notice: "\uACF5\uC9C0\uC0AC\uD56D",
+    about: "소개",
+    notice: "공지사항",
     faq: "FAQ",
     contact: "Recipe Market | 123-45-6789 | +82-1234-4567",
     email: "hello@recipemarket.com",
-    policy: "\uC774\uC6A9\uC57D\uAD00 | \uAC1C\uC778\uC815\uBCF4\uCC98\uB9AC\uBC29\uCE68",
+    policy: "이용약관 | 개인정보처리방침",
   },
   modal: {
-    defaultName: "\uB808\uC2DC\uD53C",
-    steps: "\uC870\uB9AC \uC21C\uC11C:",
-    close: "\uB2EB\uAE30",
-    noInfo: "\uC870\uB9AC \uC21C\uC11C \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+    defaultName: "레시피",
+    steps: "조리 순서:",
+    close: "닫기",
+    noInfo: "조리 순서 정보가 없습니다.",
   },
 };
 
@@ -53,11 +57,9 @@ export default function CookCalendar() {
   const [recipes, setRecipes] = useState<StoredRecipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<StoredRecipe | null>(null);
   const { user, logout } = useAuth();
-  const userName = useMemo(
-    () => user?.name ?? localStorage.getItem("currentUserName") ?? TEXT.nav.myPage,
-    [user?.name]
-  );
   const UserCircleIcon = FaUserCircle as ComponentType<{ className?: string }>;
+  const PlusIcon = FiPlus as ComponentType<{ className?: string }>;
+  const TrashIcon = FiTrash2 as ComponentType<{ className?: string }>;
 
   const userId = useMemo(() => user?.id ?? localStorage.getItem("currentUser"), [user?.id]);
 
@@ -81,9 +83,123 @@ export default function CookCalendar() {
   const formattedDate = selectedDate.toLocaleDateString("sv-SE");
   const recipesForDay = recipes.filter((item) => item.selected_date?.startsWith(formattedDate));
 
+  const handleActionUpdate = async (recipe: StoredRecipe, nextAction: number) => {
+    if (!userId) {
+      alert("로그인 후 이용해 주세요.");
+      return;
+    }
+    if (recipe.recommend_id == null || recipe.recipe_id == null) {
+      alert("레시피 정보를 다시 불러와 주세요.");
+      return;
+    }
+
+    try {
+      await apiFetch("/selected_recipe/action", {
+        method: "PATCH",
+        body: JSON.stringify({
+          user_id: userId,
+          recommend_id: recipe.recommend_id,
+          recipe_id: recipe.recipe_id,
+          action: nextAction,
+        }),
+      });
+      setRecipes((prev) =>
+        prev.map((item) =>
+          item.recipe_id === recipe.recipe_id && item.recommend_id === recipe.recommend_id
+            ? { ...item, action: nextAction }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update recipe action:", error);
+      alert("상태를 변경하지 못했습니다.");
+    }
+  };
+
+const handleDeleteRecipe = async (recipe: StoredRecipe) => {
+  if (!userId) {
+    alert("�α��� �� �̿��� �ּ���.");
+    return;
+  }
+  if (recipe.recommend_id == null || recipe.recipe_id == null) {
+    alert("������ ������ �ٽ� �ҷ��� �ּ���.");
+    return;
+  }
+
+  try {
+    await apiFetch("/selected_recipe", {
+      method: "DELETE",
+      body: JSON.stringify({
+        user_id: userId,
+        recommend_id: recipe.recommend_id,
+        recipe_id: recipe.recipe_id,
+      }),
+    });
+    setRecipes((prev) =>
+      prev.filter(
+        (item) =>
+          !(
+            String(item.recipe_id) === String(recipe.recipe_id) &&
+            String(item.recommend_id) === String(recipe.recommend_id)
+          )
+      )
+    );
+    setSelectedRecipe((current) => {
+      if (
+        current &&
+        String(current.recipe_id) === String(recipe.recipe_id) &&
+        String(current.recommend_id) === String(recipe.recommend_id)
+      ) {
+        return null;
+      }
+      return current;
+    });
+  } catch (error) {
+    console.error("Failed to delete selected recipe:", error);
+    alert("������ �������� ���߽��ϴ�.");
+  }
+};
+
   return (
     <>
-      <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showVideo={false}>
+      <style>
+        {`
+          .cook-calendar.react-calendar {
+            background: transparent !important;
+            border: none !important;
+            color: #ffffff;
+          }
+          .cook-calendar .react-calendar__navigation {
+            background: transparent;
+            border-bottom: none;
+          }
+          .cook-calendar .react-calendar__navigation button {
+            color: #ffffff;
+            background: transparent !important;
+          }
+          .cook-calendar .react-calendar__month-view__weekdays {
+            color: rgba(255, 255, 255, 0.8);
+          }
+          .cook-calendar
+            .react-calendar__month-view__days__day--weekend {
+            color: #ffffff !important;
+          }
+          .cook-calendar .react-calendar__tile {
+            background: transparent !important;
+            color: #ffffff;
+          }
+          .cook-calendar .react-calendar__tile--active,
+          .cook-calendar .react-calendar__tile--now {
+            background: transparent !important;
+            color: inherit !important;
+          }
+          .cook-calendar .react-calendar__tile:enabled:hover,
+          .cook-calendar .react-calendar__tile:enabled:focus {
+            background: rgba(255, 255, 255, 0.2) !important;
+          }
+        `}
+      </style>
+      <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
         <header className="relative bg-transparent text-center pt-4 pb-2 sticky top-0 z-50">
           <h1 className="text-xl font-extrabold">CookUS</h1>
           <nav className="mt-2 flex justify-center gap-6 text-sm font-medium">
@@ -108,113 +224,134 @@ export default function CookCalendar() {
                 {TEXT.nav.login}
               </Link>
             )}
-        </nav>
-        <Link
-          to="/mypage"
-          className="absolute right-6 top-3 flex items-center justify-center hover:text-[#8B4000] transition"
-        >
-          <UserCircleIcon className={`h-8 w-8 ${user ? "text-[#6B2E00]" : "text-gray-400"}`} />
-        </Link>
-      </header>
+          </nav>
+          <Link
+            to="/mypage"
+            className="absolute right-6 top-3 flex items-center justify-center hover:text-[#8B4000] transition"
+          >
+            <UserCircleIcon className={`h-8 w-8 ${user ? "text-[#6B2E00]" : "text-gray-400"}`} />
+          </Link>
+        </header>
 
-        <main className="flex-1 px-6 py-8 overflow-y-auto">
-          <section className="mb-6 grid grid-cols-1 gap-3 text-sm text-white">
-            <div className="rounded-3xl bg-[#F2994A]/80 px-4 py-3 shadow">
-              <div className="flex items-center gap-3">
-                <FaCalendarDay className="h-7 w-7 drop-shadow" />
-                <div>
-                  <p className="text-xs tracking-wide uppercase opacity-80">선택한 날짜</p>
-                  <p className="text-lg font-semibold">{formattedDate}</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-3xl bg-[#6B2E00]/70 px-4 py-3 shadow">
-              <div className="flex items-center gap-3">
-                <FaUtensils className="h-7 w-7 drop-shadow" />
-                <div>
-                  <p className="text-xs tracking-wide uppercase opacity-80">등록된 레시피</p>
-                  <p className="text-lg font-semibold">{recipesForDay.length}개</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <h2 className="text-2xl font-bold mb-4 text-[#6B2E00]">{TEXT.title}</h2>
-          <div className="relative rounded-3xl border border-[#E2B857]/60 bg-white/85 shadow-xl overflow-hidden">
-            <Calendar
-              onChange={setValue}
-              value={value}
-              locale="ko-KR"
-              className="w-full text-center"
-              tileClassName={({ date }) => {
-                const today = new Date();
-                const formatted = date.toISOString().split("T")[0];
-                const selectedFormatted = selectedDate.toISOString().split("T")[0];
-
-                let classes = "py-2 rounded-xl transition-all duration-200 ";
-                if (date.getDay() === 0) classes += "text-red-500 ";
-                if (date.getDay() === 6) classes += "text-blue-500 ";
-                if (formatted === today.toISOString().split("T")[0]) {
-                  classes += "border-2 border-[#F2994A] font-bold text-[#6B2E00] ";
-                }
-                if (formatted === selectedFormatted) {
-                  classes += "bg-[#F7D98A] text-[#6B2E00] font-extrabold shadow-sm ";
-                }
-                classes += "hover:bg-[#F7D98A]/60 hover:shadow cursor-pointer";
-                return classes;
-              }}
-            />
+        <main className="flex-1 px-6 pb-8 flex flex-col">
+          <div className="mt-3 text-center text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.35)]">
+            <p className="text-2xl font-extrabold tracking-tight">{TEXT.title}</p>
+            <p className="text-sm font-medium text-white/80 mt-1">
+              {TEXT.selectedDatePrefix} {formattedDate}
+            </p>
           </div>
 
-          <div className="w-full mt-8 space-y-4">
+          <div className="mt-6 flex justify-center">
+            <div className="w-full max-w-[360px] rounded-[28px] px-4 py-5">
+              <Calendar
+                onChange={setValue}
+                value={value}
+                locale="ko-KR"
+                className="cook-calendar w-full text-center rounded-2xl text-white"
+                tileClassName={({ date }) => {
+                  const today = new Date();
+                  const todayFormatted = today.toISOString().split("T")[0];
+                  const formatted = date.toISOString().split("T")[0];
+                  const selectedFormatted = selectedDate.toISOString().split("T")[0];
+
+                  const isToday = formatted === todayFormatted;
+                  const isSelected = formatted === selectedFormatted;
+
+                  const classes = [
+                    "py-3",
+                    "rounded-full",
+                    "text-sm",
+                    "font-semibold",
+                    "transition",
+                    "duration-200",
+                    "text-white",
+                    "bg-transparent",
+                    "cursor-pointer",
+                    "hover:bg-white/20",
+                  ];
+
+                  if (isSelected) {
+                    classes.push(
+                      "ring-2",
+                      "ring-white",
+                      "bg-white/10",
+                      "text-white"
+                    );
+                  } else if (isToday) {
+                    classes.push(
+                      "bg-white",
+                      "text-[#6B2E00]",
+                      "shadow-lg"
+                    );
+                  }
+
+                  return classes.join(" ");
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4 px-2">
             {recipesForDay.length > 0 ? (
-              recipesForDay.map((recipe, index) => (
-                <div
-                  key={`${recipe.recipe_nm_ko ?? "recipe"}-${index}`}
-                  className="rounded-3xl bg-white/90 p-4 shadow-md border border-[#E2B857]/40 backdrop-blur"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-[#6B2E00]">
-                      {recipe.recipe_nm_ko ?? TEXT.modal.defaultName}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[#6B2E00]/80">
-                      <span className="rounded-full bg-[#F7D98A]/80 px-3 py-1">
-                        {TEXT.level}: {recipe.level_nm ?? TEXT.modal.noInfo}
-                      </span>
-                      <span className="rounded-full bg-[#F7D98A]/50 px-3 py-1">
-                        {TEXT.cookingTime}: {recipe.cooking_time ?? TEXT.modal.noInfo}
+              recipesForDay.map((recipe, index) => {
+                const isActive = recipe.action === 1;
+                return (
+                  <div
+                    key={`${recipe.recipe_nm_ko ?? "recipe"}-${index}`}
+                    className={`text-[#6B2E00] bg-white/20 backdrop-blur-sm border border-white/10 rounded-2xl px-3 py-3 transition ${isActive ? "font-semibold" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-[#6B2E00]">
+                        {recipe.recipe_nm_ko ?? TEXT.modal.defaultName}
+                      </h3>
+                      <span
+                        className={`text-xs font-semibold px-3 py-1 rounded-full ${isActive ? "bg-[#F7D98A] text-[#6B2E00]" : "bg-[#EEE1C5] text-[#6B2E00]/70"}`}
+                      >
+                        {isActive ? "진행완료" : "진행 전"}
                       </span>
                     </div>
+                    <p className="text-sm text-[#6B2E00]/70 mt-1">
+                      {TEXT.level}: {recipe.level_nm ?? TEXT.modal.noInfo} / {TEXT.cookingTime}: {recipe.cooking_time ?? TEXT.modal.noInfo}
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleActionUpdate(recipe, isActive ? 0 : 1)}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                            isActive
+                              ? "border-[#F7D98A] bg-[#F7D98A]/80 text-[#6B2E00] shadow-md"
+                              : "border-white/50 bg-white/20 text-white hover:bg-white/30"
+                          }`}
+                          aria-label={isActive ? "숨기기" : "표시하기"}
+                        >
+                          <PlusIcon className={`h-3.5 w-3.5 ${isActive ? "rotate-45" : ""}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRecipe(recipe)}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/50 bg-white/10 text-white transition hover:bg-white/20 hover:text-[#B84000]"
+                          aria-label="삭제"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRecipe(recipe)}
+                        className="ml-auto rounded-xl bg-[#F2994A] px-4 py-2 text-sm font-semibold text-[#6B2E00] shadow hover:bg-[#f08a29]"
+                      >
+                        {TEXT.detailButton}
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRecipe(recipe)}
-                    className="mt-3 w-full rounded-xl bg-[#F2994A] py-2 text-sm font-semibold text-white shadow hover:bg-[#f08a29]"
-                  >
-                    {TEXT.detailButton}
-                  </button>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-3xl bg-white/70 border border-dashed border-[#E2B857]/60 py-8 text-[#6B2E00]/70">
-                <FaUtensils className="h-10 w-10 mb-3 opacity-60" />
-                <p className="text-sm font-medium">{TEXT.noRecipes}</p>
-              </div>
+              <p className="text-center text-sm text-[#6B2E00]/60">{TEXT.noRecipes}</p>
             )}
           </div>
         </main>
-
-        <footer className="rounded-3xl bg-[#F6E8C9]/90 px-6 py-6 text-center text-xs text-[#6B2E00] shadow-inner mt-auto">
-          <p className="text-sm font-semibold">{TEXT.footer.title}</p>
-          <p className="mt-3 flex justify-center gap-4 font-medium">
-            <span>{TEXT.footer.about}</span>
-            <span>{TEXT.footer.notice}</span>
-            <span>{TEXT.footer.faq}</span>
-          </p>
-          <p className="mt-3">{TEXT.footer.contact}</p>
-          <p>{TEXT.footer.email}</p>
-          <p className="mt-2">{TEXT.footer.policy}</p>
-        </footer>
       </VideoBackgroundLayout>
 
       {selectedRecipe && (
@@ -258,3 +395,11 @@ export default function CookCalendar() {
     </>
   );
 }
+
+
+
+
+
+
+
+
