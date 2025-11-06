@@ -1,0 +1,7 @@
+/* index.css — 전체 배경과 폰트 간단히 지정 */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #fff;
+  margin: 0;
+  padding: 20px;
+}
