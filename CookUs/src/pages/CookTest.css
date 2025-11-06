@@ -1,12 +1,15 @@
-.	cooktest-wrap { display:flex; flex-direction:column; gap:16px; }
+.cooktest-wrap { display:flex; flex-direction:column; gap:16px; }
 .cooktest-header h2 { margin:0; }
 .cooktest-header .muted { color:#666; margin-top:4px; }
-.event-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
-.event-card { text-align:left; border:1px solid #eee; border-radius:10px; padding:14px; background:#fff; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
+.event-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:12px; height: 200px; }
+.event-card { text-align:left; border:1px solid #f1d28c; border-radius:14px; padding:16px; background: linear-gradient(180deg, #fffdf6 0%, #fff7e2 55%, #ffffff 100%); cursor:pointer; display:flex; flex-direction:column; gap:8px; position:relative; box-shadow: 0 6px 22px rgba(122,81,58,.09), inset 0 1px 0 #fffdf2 }
+.event-card:hover{ transform: translateY(-2px); box-shadow: 0 10px 26px rgba(122,81,58,.14), inset 0 1px 0 #fffdf2 }
+.event-card::after{ border-radius: 14px;content:""; position:absolute; left:0; right:0; bottom:0; height:45px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 34' preserveAspectRatio='none'><path d='M0 18 C20 6 40 30 60 18 C80 6 100 30 120 18 V34 H0 Z' fill='%23fff3cf'/></svg>") no-repeat bottom center/100% 100%; opacity:.85; pointer-events:none }
+.event-title, .event-dates, .event-meta-box{ position:relative; z-index:1 }
 .event-card:hover { border-color:#ddd; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .event-title { font-weight:700; font-size:16px; }
 .event-dates { color:#666; font-size:13px; }
-.event-meta { color:#444; font-size:13px; }
+.event-meta { color:#444; font-size:13px; text-align: right; }
 .hint { color:#666; }
 .error { color:#c00; }
 .feed-card { border:1px solid #eee; border-radius:10px; padding:12px; background:#fff; }
@@ -20,5 +23,5 @@
 .form-vert .label { font-size:13px; color:#555; margin-bottom:4px; }
 .form-vert input, .form-vert textarea { width:100%; border:1px solid #ddd; border-radius:8px; padding:8px 10px; font-size:14px; }
 /* app-tab layout integration */
-.cooktest.app-tab { display:grid; grid-template-rows:auto 1fr; row-gap:12px; width:100%; }
+.cooktest.app-tab { display:grid; grid-template-rows:auto 1fr; row-gap:12px; width:100%; height:100%; overflow:auto }
 .cooktest .cooktest-header{ justify-self:stretch; text-align:left }
