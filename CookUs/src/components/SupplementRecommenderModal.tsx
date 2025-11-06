@@ -34,8 +34,20 @@ export default function SupplementRecommenderModal({ onClose }: Props) {
       }
       const data = await nutritionAPI.recommend(payload)
       const { data: formatted } = formatResults(data)
-      // limit 5 items per goal (client-side safety)
-      setResults(formatted.map(g => ({ ...g, items: (g.items || []).slice(0,5) })))
+      // 1) Filter out export-only items (e.g., "수출", "수출용", "전량수출", "export")
+      const filtered = formatted.map(g => ({
+        ...g,
+        items: (g.items || []).filter((it: any) => {
+          const name: string = (it?.product_name ?? '') + ''
+          const lower = name.toLowerCase()
+          const bannedKo = /(전량수출|수출용|수출 전용|수출전용)/
+          const bannedEn = /(export[- ]?only|for export)/
+          return !(bannedKo.test(name) || bannedEn.test(lower))
+        })
+      }))
+      // 2) Randomly sample up to 5 items per goal each time
+      const sampled = filtered.map(g => ({ ...g, items: sampleUpTo(g.items || [], 5) }))
+      setResults(sampled)
     } catch (e: any) {
       setError(e?.message ?? '추천을 불러오지 못했어요.')
     } finally { setRunning(false) }
@@ -137,6 +149,16 @@ function formatResults(raw: any) {
   // Accepts array of { goal, items: [{ category, product_name, function, shape, timing? }] }
   if (!Array.isArray(raw)) return { data: [] as Array<{ goal:string; items:any[] }> }
   return { data: raw }
+}
+
+// Utility: random sample up to N without replacement
+function sampleUpTo<T>(arr: T[], n: number): T[] {
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a.slice(0, Math.min(n, a.length))
 }
 
 // inline detail modal
