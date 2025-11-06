@@ -25,6 +25,7 @@ export type CookPost = {
   content_title: string
   content_text: string
   img_url: string | null
+  img_urls?: string[]
   likes: number
   created_at: string
 }
@@ -33,6 +34,7 @@ export type CreatePostDto = {
   content_title: string
   content_text: string
   img_url?: string | null
+  img_urls?: string[]
 }
 
 export const cooktestAPI = {
@@ -53,6 +55,11 @@ export const cooktestAPI = {
     return data
   },
 
+  async getPost(eventId: number, postId: number): Promise<CookPost> {
+    const { data } = await api.get(`/events/${eventId}/posts/${postId}`)
+    return data
+  },
+
   async createPost(eventId: number, body: CreatePostDto): Promise<CookPost> {
     const { data } = await api.post(`/events/${eventId}/posts`, body)
     return data
@@ -60,6 +67,11 @@ export const cooktestAPI = {
 
   async likePost(postId: number): Promise<{ likes: number }> {
     const { data } = await api.post(`/posts/${postId}/like`)
+    return data
+  },
+
+  async presignUploads(eventId: number, fileExts: string[]): Promise<{ upload_list: Array<{ upload_url: string; file_url: string; file_name: string }>; expires_in: number }>{
+    const { data } = await api.post(`/events/${eventId}/presigned-urls`, { file_exts: fileExts })
     return data
   },
 }

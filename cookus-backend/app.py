@@ -15,6 +15,7 @@ from recommendations import router as recommendation_router
 from users import router as user_router
 from stats import router as stats_router
 from shorts import router as shorts_router
+from cooktest import router as cooktest_router
 
 
 def create_app() -> FastAPI:
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(stats_router)
     app.include_router(nutrition_router)
     app.include_router(shorts_router)
+    app.include_router(cooktest_router)
 
     return app
 

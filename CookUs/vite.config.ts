@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => {
         '/shorts': { target, changeOrigin: true },
         '/faq': { target, changeOrigin: true },
         '/nutrition': { target, changeOrigin: true },
+        // CookTest (events & posts)
+        '/events': { target, changeOrigin: true },
+        '/posts': { target, changeOrigin: true },
       },
     },
   }
