@@ -1,19 +1,174 @@
-.nutrition.app-tab{ display:grid; grid-template-rows:auto 1fr; gap:12px; width:100%; justify-items:stretch; padding: 10px 20px 0px 20px; }
+﻿.nutrition.app-tab{
+  display:grid;
+  grid-template-rows:auto 1fr;
+  gap:12px;
+  width:100%;
+  justify-items:stretch;
+  padding: 10px 25px 0 20px;
+  overflow:hidden;
+}
 .nutrition .nt-header{ width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left }
 .nutrition .nt-header .title{ margin:0 }
 .nutrition .nt-header .actions{ display:flex; gap:8px }
-.nutrition .nt-grid{ width:100%; display:grid; grid-template-columns: minmax(0,1fr); gap:14px; align-items:start }
+.nutrition .nt-grid{
+  width:100%;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:stretch;
+  box-sizing:border-box;
+}
 .nutrition .nt-grid > *{ min-width:0 }
-/* Always stack: calendar on top, daily check below */
-@media (min-width: 860px){ .nutrition .nt-grid{ grid-template-columns: minmax(0,1fr) } }
-.nutrition .card{ background:#fff; border:1px solid var(--paper-bd); border-radius:14px; padding:10px 14px; box-shadow:0 2px 6px rgba(0,0,0,.04); text-align:left; height: 200px; }
+.nutrition .nt-calendar{
+  flex:0 0 340px;
+  max-width:100%;
+}
+.nutrition .nt-calendar-inner{
+  --nut-cal-cell: 43px;
+  padding: 0px;
+}
+.nutrition .nt-calendar-inner .cal-card{
+  max-width:340px;
+  margin:0 auto;
+}
+
+.nutrition .nt-calendar-inner .week-head,
+.nutrition .nt-calendar-inner .weeks{
+  grid-auto-rows: var(--nut-cal-cell);
+}
+.nutrition .nt-calendar-inner .week-head .cell.head{
+  padding:0;
+  height: var(--nut-cal-cell);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  border-radius:10px;
+}
+.nutrition .nt-calendar-inner .weeks .cell.day{
+  padding:0;
+  height: var(--nut-cal-cell);
+  aspect-ratio:auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:4px;
+  border-radius:10px;
+}
+.nutrition .nt-calendar-inner .weeks .cell.day .dnum{
+  font-size:13px;
+}
+.nutrition .nt-calendar-inner .weeks .cell.day .dot{
+  position:static;
+  width:6px;
+  height:6px;
+}
+
+.nutrition .nt-calendar-inner .calendar{
+  height:300px;
+}
+
+.nutrition .card{
+  background:#fff;
+  border:1px solid var(--paper-bd);
+  border-radius:14px;
+  padding:10px 14px;
+  box-shadow:0 2px 6px rgba(0,0,0,.04);
+  text-align:left;
+  min-height:200px;
+  height:auto;
+}
+.nutrition .daily-card{
+  flex:1 1 300px;
+  max-width:min(100%, 620px);
+  display:flex;
+  flex-direction:column;
+  max-height:400px;
+  margin-bottom: 10px;
+}
+
+.nt-calendar .cal-header{
+  font-size: 16px;
+  padding: 5px;
+  height: 20px;
+}
+.nutrition .nut-note{
+  flex:0 0 220px;
+  max-width:260px;
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  margin:0;
+  font-size:13px;
+}
+.nutrition .nut-note__avatar{ width:44px; height:44px; object-fit:contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,.12)); }
+.nutrition .nut-note__bubble{
+  position:relative;
+  --note-border:#e5e7eb;
+  --note-bg:#fafafa;
+  --note-color:#334155;
+  border:1px solid var(--note-border);
+  background:var(--note-bg);
+  color:var(--note-color);
+  font-weight:700;
+  border-radius:16px;
+  padding:12px 16px;
+  line-height:1.45;
+  box-shadow:0 6px 16px rgba(0,0,0,.08);
+  max-width:220px;
+}
+.nutrition .nut-note__bubble::after{
+  content:'';
+  position:absolute;
+  left:-8px;
+  top:18px;
+  width:14px;
+  height:14px;
+  background:var(--note-bg);
+  border-left:1px solid var(--note-border);
+  border-bottom:1px solid var(--note-border);
+  transform:rotate(45deg);
+}
+.nutrition .nut-note__text{ display:block; }
+.nutrition .nut-note--celebrate .nut-note__bubble{
+  --note-border:#bfe8d9;
+  --note-bg:#e7fbf3;
+  --note-color:#1f6a55;
+}
+.nutrition .nut-note--encourage .nut-note__bubble{
+  --note-border:#bfdbfe;
+  --note-bg:#eff6ff;
+  --note-color:#1d4ed8;
+}
+.nutrition .nut-note--warn .nut-note__bubble{
+  --note-border:#f87171;
+  --note-bg:#fee2e2;
+  --note-color:#b91c1c;
+}
+.nutrition .nut-note--empty .nut-note__bubble{
+  --note-border:#facc15;
+  --note-bg:#fff9db;
+  --note-color:#92400e;
+}
+.nutrition .nut-note--future .nut-note__bubble{
+  --note-border:#c4b5fd;
+  --note-bg:#f5f3ff;
+  --note-color:#4338ca;
+}
+.nutrition .nut-note--warn .nut-note__bubble{
+  --note-border:#f87171;
+  --note-bg:#fee2e2;
+  --note-color:#b91c1c;
+}
+
 .nutrition .sec-title{ margin:0 0 10px; font-size:15px; font-weight:800 }
 .nutrition .icon-btn.small{ appearance:none; background:transparent; border:1px solid #e5e7eb; border-radius:8px; width:28px; height:28px; display:inline-grid; place-items:center; cursor:pointer }
 .nutrition .icon-btn.small:hover{ background:#fafafa }
 
 /* Daily check cards */
 .nutrition .check-list{ display:grid; gap:8px }
-.nutrition .check-list-wrap{ max-height: 280px; overflow:auto; -webkit-overflow-scrolling:touch; padding-right:4px }
+.nutrition .check-list-wrap{ max-height: 270px; overflow:hidden; -webkit-overflow-scrolling:touch; padding-right:4px }
 .nutrition .check-item{
   display:grid; grid-template-columns: 1fr auto auto; align-items:center; gap:8px;
   border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px;
@@ -33,8 +188,7 @@
 .nutrition .chkbox:disabled{ opacity:.5; cursor:not-allowed }
 
 /* Make only the checklist area scroll inside the card */
-.nutrition .daily-card{ display:flex; flex-direction:column; max-height: 440px }
-.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow:auto; -webkit-overflow-scrolling:touch }
+.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow:hidden; -webkit-overflow-scrolling:touch }
 .nutrition .intake-list{ display:flex; flex-direction:column; gap:10px }
 .nutrition .intake-item .line1{ display:flex; align-items:center; justify-content:space-between }
 .nutrition .intake-item .name{ font-weight:700 }
@@ -46,3 +200,8 @@
 .nutrition .rreason{ color:#555 }
 
 /* Nutrition calendar reuses global .calendar styles; custom dot color applied inline */
+
+
+
+
+

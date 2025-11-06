@@ -18,7 +18,11 @@ export default function NutritionCalendar({ month, onMonthChange, monthStatus, o
 
   const goPrev = () => onMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))
   const goNext = () => onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))
-  const goToday = () => { const base = new Date(now.getFullYear(), now.getMonth(), 1); onMonthChange(base) }
+  const goToday = () => {
+    const base = new Date(now.getFullYear(), now.getMonth(), 1)
+    onMonthChange(base)
+    onSelectDay(todayStr)
+  }
 
   return (
     <div className="cal-card">

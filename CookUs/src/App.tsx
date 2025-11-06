@@ -72,7 +72,7 @@ export default function App() {
           )}
 
           {tab === 'calendar' && (
-            <Calendar isLoggedIn={isLoggedIn} />
+            <Calendar isLoggedIn={isLoggedIn} userName={user?.user_name} />
           )}
 
           {tab === 'cooktest' && (
@@ -84,7 +84,7 @@ export default function App() {
           )}
 
           {tab === 'nutrition' && (
-            <Nutrition isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+            <Nutrition isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} userName={user?.user_name} />
           )}
 
           {tab === 'mypage' && (

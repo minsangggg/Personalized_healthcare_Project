@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { recipeAPI, type SelectedRecipesResponse } from '../api/recipe'
 import RecipeDetailModal from '../components/RecipeDetailModal'
 import type { Recipe } from '../api/recipe'
+import chefBattery from '../assets/요리사 건전지.png'
 import './Calendar.css'
 
-type CalendarProps = { isLoggedIn: boolean }
+type CalendarProps = { isLoggedIn: boolean; userName?: string }
 type Row = SelectedRecipesResponse['recipes'][number]
 
 function ymd(d: Date) {
@@ -51,7 +52,7 @@ function getCalendarGrid(base: Date) {
   return cells
 }
 
-export default function Calendar({ isLoggedIn }: CalendarProps) {
+export default function Calendar({ isLoggedIn, userName }: CalendarProps) {
   const [data, setData] = useState<SelectedRecipesResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -108,7 +109,7 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(() => ymd(new Date()))
 
   useEffect(() => {
     let alive = true
@@ -156,9 +157,89 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
 
   const now = new Date()
   const todayStr = ymd(now)
+  const todayAnchor = useMemo(() => {
+    const base = new Date()
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate())
+  }, [todayStr])
   const monthLabel = `${month.getFullYear()}년 ${month.getMonth() + 1}월`
   const isSameMonth = (d: Date) =>
     d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth()
+  const isFutureSelected = useMemo(() => {
+    if (!selectedDay) return false
+    const d = toLocalDate(selectedDay)
+    if (!d) return false
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    return target.getTime() > todayAnchor.getTime()
+  }, [selectedDay, todayAnchor])
+  const checkedDaySet = useMemo(() => {
+    const set = new Set<string>()
+    for (const row of data?.recipes ?? []) {
+      if ((row.action ?? 0) !== 1) continue
+      const d = toLocalDate(row.selected_date)
+      if (!d) continue
+      set.add(ymd(d))
+    }
+    return set
+  }, [data])
+  const streakCount = useMemo(() => {
+    if (!selectedDay) return 0
+    const base = toLocalDate(selectedDay)
+    if (!base) return 0
+    let cnt = 0
+    const cursor = new Date(base.getFullYear(), base.getMonth(), base.getDate())
+    while (true) {
+      const key = ymd(cursor)
+      if (!checkedDaySet.has(key)) break
+      cnt += 1
+      cursor.setDate(cursor.getDate() - 1)
+    }
+    return cnt
+  }, [selectedDay, checkedDaySet])
+  const nickname = useMemo(() => userName?.trim() || '셰프', [userName])
+  const motivation = useMemo(() => {
+    if (!selectedDay) return null
+    if (isFutureSelected) {
+      return {
+        text: '미래 날짜에는 또 오실거죠? 예약된 요리를 기대하고 있을게요!',
+        tone: 'future' as const,
+        toastKind: 'ok' as const
+      }
+    }
+    const isToday = selectedDay === todayStr
+    if (selectedRecipes.length === 0) {
+      return {
+        text: '해당 날에 저장된 요리가 없어요! 추천을 받아서 선택해보세요!',
+        tone: 'empty' as const,
+        toastKind: 'warn' as const
+      }
+    }
+    const checkedCount = selectedRecipes.filter((r) => (r.action ?? 0) === 1).length
+    if (checkedCount === 0) {
+      return {
+        text: isToday
+          ? `오늘도 요리하는 멋진 ${nickname}님을 기록해주세요!`
+          : `그날에도 요리하는 멋진 ${nickname}님을 기록해주세요!`,
+        tone: 'encourage' as const,
+        toastKind: 'ok' as const
+      }
+    }
+    const streak = streakCount > 0 ? streakCount : 1
+    const prefix = streak >= 10 ? '대단해요! ' : ''
+    return {
+      text: `${prefix}🔥 ${streak}일 연속 요리중이에요! 꾸준히 파이팅!!!`,
+      tone: 'celebrate' as const,
+      toastKind: 'ok' as const
+    }
+  }, [nickname, selectedDay, selectedRecipes, streakCount, todayStr, isFutureSelected])
+  const lastMotivationKey = useRef<string | null>(null)
+  useEffect(() => {
+    if (!motivation || !isLoggedIn || !selectedDay || loading) return
+    if (selectedDay !== todayStr) return
+    const key = `${selectedDay}-${motivation.text}`
+    if (lastMotivationKey.current === key) return
+    lastMotivationKey.current = key
+    showToast(motivation.text, motivation.toastKind, motivation.tone === 'celebrate' ? 2800 : 2200)
+  }, [motivation, isLoggedIn, selectedDay, loading, todayStr])
 
   const goPrev = () => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))
   const goNext = () => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))
@@ -259,6 +340,15 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
               </div>
             </div>
 
+            {motivation && !loading && (
+              <div className={`cal-note cal-note--${motivation.tone}`}>
+                <img src={chefBattery} alt="" aria-hidden className="cal-note__avatar" />
+                <div className="cal-note__bubble">
+                  <span className="cal-note__text">{motivation.text}</span>
+                </div>
+              </div>
+            )}
+
             {/* 선택 날짜 상세 */}
             {selectedDay && (
               <div className="day-detail">
@@ -270,7 +360,7 @@ export default function Calendar({ isLoggedIn }: CalendarProps) {
                 </div>
                 <div className="day-body">
                   {selectedRecipes.length === 0 ? (
-                    <div className="muted small">이 날의 기록이 없어요.</div>
+                    <div className="muted small">해당 날에는 아직 기록이 없어요.</div>
                   ) : (
                     <ul className="list">
                       {selectedRecipes.map((r) => (
