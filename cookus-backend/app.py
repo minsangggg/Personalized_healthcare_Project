@@ -14,6 +14,7 @@ from recommendations import router as recommendation_router
 from users import router as user_router
 from stats import router as stats_router
 from shorts import router as shorts_router
+from badges.router import router as badges_router
 
 
 def create_app() -> FastAPI:
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(recipe_router)
     app.include_router(stats_router)
     app.include_router(shorts_router)
+    app.include_router(badges_router)
 
     return app
 
