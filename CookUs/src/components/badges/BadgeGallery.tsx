@@ -46,7 +46,7 @@ export default function BadgeGallery({ catalog, owned, progress }: Props) {
                   title={title}
                   onClick={() => setActive({ code: item.code, awardedAt: ownedMap[item.code], description: item.description })}
                 >
-                  <div className={earned ? 'shine-wrap' : ''}>
+                  <div className={earned ? 'shine-wrap flip-y' : ''}>
                     <BadgeIcon code={item.code} earned={earned} size={52} />
                   </div>
                   <div className="badge-name" style={{ marginTop: 4 }}>{item.name_ko}</div>

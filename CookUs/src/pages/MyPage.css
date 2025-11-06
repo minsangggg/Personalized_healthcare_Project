@@ -93,7 +93,7 @@
 /* clickable tile */
 .badge-tile-btn{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px; border:none; background:transparent; cursor:pointer; width:100%; box-sizing:border-box }
 .badge-tile-btn.locked{ filter: grayscale(1); opacity:.6 }
-.badge-tile-btn.earned{ position:relative; animation: tilt-y 2.8s ease-in-out infinite alternate; transform-style: preserve-3d; backface-visibility: visible }
+.badge-tile-btn.earned{ position:relative }
 .badge-tile-btn:hover{ transform: translateY(-1px) }
 
 /* shine effect wrapper */
@@ -101,7 +101,9 @@
 .shine-wrap::after{ content:""; position:absolute; top:-20%; left:-70%; width:60%; height:140%; transform: rotate(25deg); background: linear-gradient(120deg, rgba(255,255,255,0.0) 20%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0.0) 80%); animation: shine 2.8s ease-in-out infinite }
 
 @keyframes shine{ 0%{ left:-70% } 100%{ left:130% } }
-@keyframes tilt-y{ from{ transform: perspective(600px) rotateY(0deg) } to{ transform: perspective(600px) rotateY(18deg) } }
+/* Flip animation for earned badge icons only (vertical axis) */
+.shine-wrap.flip-y{ transform-style: preserve-3d; backface-visibility: visible; animation: flip-y 2.8s ease-in-out infinite alternate }
+@keyframes flip-y{ from{ transform: perspective(600px) rotateY(0deg) } to{ transform: perspective(600px) rotateY(180deg) } }
 
 /* detail modal icon spin/glow */
 .badge-spin-glow{ animation: none; filter: drop-shadow(0 2px 8px rgba(124,77,255,.22)); transform-style: preserve-3d; backface-visibility: visible }
