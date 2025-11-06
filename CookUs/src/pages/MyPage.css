@@ -1,6 +1,6 @@
 /* --- Layout & Card --- */
 .mypage { padding:10px; }
-.my-card { padding:16px 14px; }
+.my-card { padding:0px 14px; }
 .my-card.center { display:grid; place-items:center; gap:10px; }
 
 /* --- Header row (avatar + name) --- */
@@ -75,3 +75,40 @@
   color: #ffffff;
   padding:10px 14px; border-radius:12px; font-weight:700; font-size: 14px;cursor:pointer
 }
+
+/* --- Sub Tabs (inside MyPage) --- */
+.subtabs { display:flex; align-items:center; gap:0; margin: 8px 0 0px; border:1px solid #e9c86f; background:#fffdf2; border-radius:12px; overflow:hidden }
+.subtab { padding:6px 12px; cursor:pointer; font-weight:500; color:#7b4e2d; user-select:none; font-size: 15PX; }
+.subtab.active { background:#ffe4b8; color:#6b3f23 }
+.subtab + .subtab { position:relative }
+.subtab + .subtab::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:1px; height:22px; background:#e9c86f }
+
+/* --- Badges view --- */
+.badge-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:8px; width:100%; }
+.badge-tile { text-align:center; }
+.badge-tile .badge-icon { font-size:28px; }
+.badge-tile .badge-name { margin-top:6px; font-weight:700; color:#7a513a }
+.badge-empty { color:#7b5a40; background:#fff7e2; border:1px dashed #e9c86f; border-radius:12px; padding:14px; text-align:center }
+
+/* clickable tile */
+.badge-tile-btn{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px; border:none; background:transparent; cursor:pointer; width:100%; box-sizing:border-box }
+.badge-tile-btn.locked{ filter: grayscale(1); opacity:.6 }
+.badge-tile-btn.earned{ position:relative; animation: tilt-y 2.8s ease-in-out infinite alternate; transform-style: preserve-3d; backface-visibility: visible }
+.badge-tile-btn:hover{ transform: translateY(-1px) }
+
+/* shine effect wrapper */
+.shine-wrap{ position:relative; display:inline-block }
+.shine-wrap::after{ content:""; position:absolute; top:-20%; left:-70%; width:60%; height:140%; transform: rotate(25deg); background: linear-gradient(120deg, rgba(255,255,255,0.0) 20%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0.0) 80%); animation: shine 2.8s ease-in-out infinite }
+
+@keyframes shine{ 0%{ left:-70% } 100%{ left:130% } }
+@keyframes tilt-y{ from{ transform: perspective(600px) rotateY(0deg) } to{ transform: perspective(600px) rotateY(18deg) } }
+
+/* detail modal icon spin/glow */
+.badge-spin-glow{ animation: none; filter: drop-shadow(0 2px 8px rgba(124,77,255,.22)); transform-style: preserve-3d; backface-visibility: visible }
+
+/* smaller caption */
+.badge-tile-btn .badge-name{ font-size:12px; color:#6b4e2d; font-weight:600 }
+
+/* Keep scrolling inside MyPage tab only */
+.app-tab.mypage{ overflow:auto; max-width:100%; }
+.app-tab.mypage .card{ max-width:100%; box-sizing:border-box; }

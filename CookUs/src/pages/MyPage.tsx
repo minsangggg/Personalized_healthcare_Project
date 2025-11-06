@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { authAPI } from '../api/auth'
 import type { User } from '../api/auth'
 import EditProfileDialog from '../components/EditProfileDialog'
+import BadgeGallery from '../components/badges/BadgeGallery'
+import { badgeCatalog, userBadges, userProgress } from '../mocks/badges'
 import './MyPage.css'
 
 type Props = { isLoggedIn: boolean; onRequireLogin: () => void }
@@ -12,6 +14,7 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [activeTab, setActiveTab] = useState<'profile' | 'badges'>('profile')
 
   const fetchMe = async () => {
     setLoading(true); setError(null)
@@ -71,6 +74,12 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
 
   return (
     <section className="app-tab mypage">
+      <div className="subtabs">
+        <div className={["subtab", activeTab==='profile'?'active':''].join(' ')} onClick={()=>setActiveTab('profile')}>프로필</div>
+        <div className={["subtab", activeTab==='badges'?'active':''].join(' ')} onClick={()=>setActiveTab('badges')}>뱃지 보기</div>
+      </div>
+
+      {activeTab === 'profile' && (
       <div className="card my-card">
         <div className="row">
           <div className="avatar">{(me?.user_name ?? 'U').slice(0,1)}</div>
@@ -111,6 +120,16 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
           <a role="link" onClick={()=>setShowDelete(true)} style={{cursor:'pointer', fontSize:12, color:'#9ca3af', textDecoration:'none'}}>회원탈퇴</a>
         </div>
       </div>
+      )}
+
+      {activeTab === 'badges' && (
+        <div className="card my-card">
+          <h3 style={{marginTop:0}}>나의 뱃지</h3>
+          {loading && <div className="note">불러오는 중…</div>}
+          {error && <div className="error">{error}</div>}
+          <BadgesSection />
+        </div>
+      )}
 
       {showEdit && me && (
         <EditProfileDialog
@@ -123,6 +142,12 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
         <DeleteAccountDialog onClose={()=>setShowDelete(false)} />
       )}
     </section>
+  )
+}
+
+function BadgesSection(){
+  return (
+    <BadgeGallery catalog={badgeCatalog} owned={userBadges} progress={userProgress} />
   )
 }
 

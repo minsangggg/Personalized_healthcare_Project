@@ -4,3 +4,4 @@ pandas>=2.0
 python-multipart>=0.0.9
 SQLAlchemy>=2.0
 PyMySQL>=1.1
+boto3>=1.34
