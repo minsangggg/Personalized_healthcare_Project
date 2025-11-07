@@ -22,8 +22,28 @@
 .ing-line{ display:flex; align-items:center; gap:6px; }
 .ing-name{ flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .qty-input{
-  width:84px; height:36px; border:1px solid #E3C881; border-radius:10px; padding:0 10px; background:#FFF7DD;
+  width:68px;
+  height:36px;
+  border:1px solid #E3C881;
+  border-radius:10px;
+  padding:0 10px;
+  background:#FFF7DD;
 }
-.btn{
-  width: 60px 0px;
+.ingredient-row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.ingredient-name{
+  min-width:110px;
+  font-weight:400;
+}
+.ingredient-unit{
+  min-width:20px;
+  text-align:center;
+  font-weight:400;
+  color:#7b5a40;
+}
+.ingredient-row .btn{
+  white-space:nowrap;
 }

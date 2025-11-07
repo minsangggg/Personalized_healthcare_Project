@@ -68,9 +68,7 @@ export default function App() {
         />
 
         {/* ✅ 알림 벨/드롭다운 (로그인 시에만). 절대 위치로 좌상단 고정 */}
-        {isLoggedIn && (
-          <Notifications isLoggedIn={isLoggedIn} />
-        )}
+        {isLoggedIn && (<Notifications isLoggedIn={isLoggedIn} />)}
 
         <main className={`app-main ${tab === 'dashboard' ? 'app-main--dashboard' : ''}`}>
           {tab === 'fridge' && (
@@ -78,11 +76,11 @@ export default function App() {
           )}
 
           {tab === 'calendar' && (
-            <Calendar isLoggedIn={isLoggedIn} />
+            <Calendar isLoggedIn={isLoggedIn} userName={user?.user_name} />
           )}
 
           {tab === 'cooktest' && (
-            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} userId={user?.user_id} />
           )}
 
           {tab === 'dashboard' && (
@@ -90,7 +88,7 @@ export default function App() {
           )}
 
           {tab === 'nutrition' && (
-            <Nutrition isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+            <Nutrition isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} userName={user?.user_name} />
           )}
 
           {tab === 'mypage' && (

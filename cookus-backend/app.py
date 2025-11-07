@@ -10,11 +10,13 @@ from fridge import router as fridge_router
 from health import router as health_router
 from ingredients import router as ingredient_router
 from recipes import router as recipe_router
+from nutrition import router as nutrition_router
 from recommendations import router as recommendation_router
 from users import router as user_router
 from stats import router as stats_router
 from shorts import router as shorts_router
 from badges.router import router as badges_router
+from cooktest import router as cooktest_router
 
 
 def create_app() -> FastAPI:
@@ -37,8 +39,10 @@ def create_app() -> FastAPI:
     app.include_router(recommendation_router)
     app.include_router(recipe_router)
     app.include_router(stats_router)
+    app.include_router(nutrition_router)
     app.include_router(shorts_router)
     app.include_router(badges_router)
+    app.include_router(cooktest_router)
 
     return app
 

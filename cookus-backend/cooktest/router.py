@@ -1,9 +1,10 @@
 ﻿from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from notifications.service import notify
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from core import get_conn, get_current_user
+from core.security import bearer, token_service
+from notifications.service import notify
 import os
 import uuid
 from datetime import datetime
@@ -65,8 +66,23 @@ def get_event(event_id: int) -> Dict[str, Any]:
 
 # -------- Posts --------
 
+def _get_optional_user(request: Request) -> Optional[str]:
+  auth = request.headers.get("Authorization", "").strip()
+  if not auth:
+    return None
+  token = auth
+  if token.lower().startswith("bearer "):
+    token = token.split(None, 1)[1].strip()
+  try:
+    payload = token_service.decode(token)
+    sub = payload.get("sub")
+    return str(sub) if sub else None
+  except Exception:
+    return None
+
+
 @router.get("/events/{event_id}/posts")
-def list_posts(event_id: int) -> List[Dict[str, Any]]:
+def list_posts(event_id: int, request: Request, view: Optional[str] = None) -> List[Dict[str, Any]]:
     """Return posts for an event in feed format expected by the frontend.
 
     Supports multiple images stored as JSON array in `img_url` column. Adds both
@@ -85,11 +101,24 @@ def list_posts(event_id: int) -> List[Dict[str, Any]]:
           created_at
         FROM board
         WHERE event_id=%s
-        ORDER BY created_at DESC
         """
     )
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(sql, (event_id,))
+        params: List[Any] = [event_id]
+        if view == "mine":
+            current_user = _get_optional_user(request)
+            if not current_user:
+                raise HTTPException(status_code=401, detail="Login required")
+            sql += " AND user_id=%s"
+            params.append(current_user)
+        elif view == "liked":
+            current_user = _get_optional_user(request)
+            if not current_user:
+                raise HTTPException(status_code=401, detail="Login required")
+            sql += " AND content_id IN (SELECT content_id FROM board_likes WHERE user_id=%s)"
+            params.append(current_user)
+        sql += " ORDER BY created_at DESC"
+        cur.execute(sql, tuple(params))
         rows = cur.fetchall()
     out: List[Dict[str, Any]] = []
     for r in rows:
@@ -161,7 +190,7 @@ def create_post(
     # normalize image payload (0..7)
     if img_urls is not None:
         if len(img_urls) > 7:
-            raise HTTPException(status_code=400, detail="이미지는 최대 7장까지 가능합니다")
+            raise HTTPException(status_code=400, detail="At most 7 images allowed")
         img_column_value: Optional[str] = json.dumps(img_urls)
     else:
         img_column_value = img_url
@@ -204,23 +233,127 @@ def create_post(
         return row
 
 
+@router.put("/events/{event_id}/posts/{post_id}")
+def update_post(
+    event_id: int,
+    post_id: int,
+    body: Dict[str, Any],
+    current_user: str = Depends(get_current_user),
+) -> Dict[str, Any]:
+    title = (body.get("content_title") or "").strip()
+    text = (body.get("content_text") or "").strip()
+    if not title or not text:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT user_id FROM board WHERE content_id=%s AND event_id=%s",
+            (post_id, event_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if str(row["user_id"]) != str(current_user):
+            raise HTTPException(status_code=403, detail="Not allowed")
+        cur.execute(
+            """
+            UPDATE board
+            SET content_title=%s, content_text=%s
+            WHERE content_id=%s AND event_id=%s
+            """,
+            (title, text, post_id, event_id),
+        )
+        cur.execute(
+            """
+            SELECT
+              content_id AS post_id,
+              event_id,
+              user_id,
+              content_title,
+              content_text,
+              img_url,
+              like_count AS likes,
+              created_at
+            FROM board
+            WHERE content_id=%s
+            """,
+            (post_id,),
+        )
+        updated = cur.fetchone()
+        if not updated:
+            raise HTTPException(status_code=404, detail="Post not found")
+        raw = updated.get("img_url")
+        imgs: List[str] = []
+        if isinstance(raw, str) and raw.strip().startswith("["):
+            try:
+                imgs = json.loads(raw)
+            except Exception:
+                imgs = []
+        elif isinstance(raw, str) and raw.strip():
+            imgs = [raw.strip()]
+        updated["img_urls"] = imgs
+        updated["img_url"] = imgs[0] if imgs else None
+        return updated
+
+
+@router.delete("/events/{event_id}/posts/{post_id}")
+def delete_post(
+    event_id: int,
+    post_id: int,
+    current_user: str = Depends(get_current_user),
+) -> Dict[str, Any]:
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT user_id FROM board WHERE content_id=%s AND event_id=%s",
+            (post_id, event_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if str(row["user_id"]) != str(current_user):
+            raise HTTPException(status_code=403, detail="Not allowed")
+        cur.execute("DELETE FROM board_likes WHERE content_id=%s", (post_id,))
+        cur.execute("DELETE FROM board WHERE content_id=%s AND event_id=%s", (post_id, event_id))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Post not found")
+    return {"status": "deleted"}
+
+
+def _ensure_likes_table(cur) -> None:
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS board_likes (
+          content_id INT NOT NULL,
+          user_id VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (content_id, user_id),
+          INDEX (content_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """
+    )
+
+
+@router.get("/events/{event_id}/likes/me", dependencies=[Depends(get_current_user)])
+def get_my_likes(event_id: int, current_user: str = Depends(get_current_user)) -> Dict[str, Any]:
+    with get_conn() as conn, conn.cursor() as cur:
+        _ensure_likes_table(cur)
+        cur.execute(
+            """
+            SELECT bl.content_id AS post_id
+            FROM board_likes bl
+            JOIN board b ON b.content_id = bl.content_id
+            WHERE bl.user_id=%s AND b.event_id=%s
+            """,
+            (current_user, event_id),
+        )
+        rows = cur.fetchall()
+    return {"liked_post_ids": [row["post_id"] for row in rows]}
+
+
 @router.post("/posts/{post_id}/like", dependencies=[Depends(get_current_user)])
 def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Dict[str, Any]:
     uid = current_user
     with get_conn() as conn, conn.cursor() as cur:
-        # Ensure helper table exists
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS board_likes (
-              content_id INT NOT NULL,
-              user_id VARCHAR(255) NOT NULL,
-              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              PRIMARY KEY (content_id, user_id),
-              INDEX (content_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-            """
-        )
-        # Try to create like entry; ignore if already liked
+        _ensure_likes_table(cur)
         cur.execute(
             """
             INSERT IGNORE INTO board_likes (content_id, user_id)
@@ -229,27 +362,49 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
             (post_id, uid),
         )
         if cur.rowcount == 1:
-            # First like by this user -> increment aggregate counter
             cur.execute(
                 "UPDATE board SET like_count = like_count + 1 WHERE content_id=%s",
                 (post_id,),
             )
-        # Return current likes
-        cur.execute("SELECT user_id like_count AS likes FROM board WHERE content_id=%s", (post_id,))
+        cur.execute("SELECT user_id, like_count AS likes FROM board WHERE content_id=%s", (post_id,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
-        owner_id, like_count = row["user_id"], row["like_count"]
-    # 정확히 50이 되는 순간에만 알림
-    if like_count == 50:
+        owner_id, like_count = row["user_id"], row["likes"]
+    # Notify exactly at 50 likes
+    if int(like_count) == 50:
         notify(
-            user_id=owner_id,
+            user_id=str(owner_id),
             title="🎉 축하합니다!",
             body="당신의 게시물이 좋아요 50개를 달성했어요!",
             link_url=f"/boards/{post_id}",
         )
-    # augment response
     return {"likes": like_count, "liked": True}
+
+
+@router.delete("/posts/{post_id}/like", dependencies=[Depends(get_current_user)]) 
+def unlike_post(post_id: int, current_user: str = Depends(get_current_user)) -> Dict[str, Any]:
+    uid = current_user
+    with get_conn() as conn, conn.cursor() as cur:
+        _ensure_likes_table(cur)
+        cur.execute(
+            "DELETE FROM board_likes WHERE content_id=%s AND user_id=%s",
+            (post_id, uid),
+        )
+        if cur.rowcount == 1:
+            cur.execute(
+                """
+                UPDATE board
+                SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END
+                WHERE content_id=%s
+                """,
+                (post_id,),
+            )
+        cur.execute("SELECT like_count AS likes FROM board WHERE content_id=%s", (post_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Post not found")
+        return {"likes": row["likes"], "liked": False}
 
 
 # -------- S3 Presigned Uploads --------
@@ -270,7 +425,7 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
     if len(file_exts) == 0:
         raise HTTPException(status_code=400, detail="no files requested")
     if len(file_exts) > 7:
-        raise HTTPException(status_code=400, detail="理쒕? 7媛쒓퉴吏留??낅줈??媛?ν빀?덈떎")
+        raise HTTPException(status_code=400, detail="Up to 7 files allowed")
 
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-northeast-2"
     bucket = os.getenv("AWS_S3_BUCKET") or os.getenv("S3_BUCKET")
@@ -290,7 +445,7 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
     for ext in file_exts:
         ext = ext.strip(".").lower()
         if ext not in ("jpg", "jpeg", "png"):
-            raise HTTPException(status_code=400, detail=f"吏?먰븯吏 ?딅뒗 ?뺤옣?? {ext}")
+            raise HTTPException(status_code=400, detail=f"Unsupported extension {ext}")
         file_name = f"{current_user}_{event_id}_{now}_{uuid.uuid4()}.{ext}"
         key = f"uploads/{event_id}/{file_name}"
         try:
@@ -304,7 +459,7 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
                 ExpiresIn=300,
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"URL ?앹꽦 ?ㅽ뙣: {e}")
+            raise HTTPException(status_code=500, detail=f"Presign failed: {e}")
         file_url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
         upload_list.append({"upload_url": url, "file_url": file_url, "file_name": file_name})
 

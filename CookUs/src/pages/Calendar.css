@@ -8,8 +8,68 @@
   margin-top:8px; background:#FCE1E1; border:1px solid #E8B1B1;
   color:#9b2f2f; padding:8px 10px; border-radius:10px;
 }
-.cal-note { margin:8px 0; padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; background:#fafafa; color:#334155; font-weight:600; }
-.cal-note.ok { border-color:#bfe8d9; background:#e7fbf3; color:#1f6a55; }
+.cal-note {
+  display:flex;
+  align-items:center;
+  justify-content: center;
+  gap:12px;
+  margin:10px 0 14px;
+}
+.cal-note__avatar {
+  width:46px;
+  height:46px;
+  object-fit:contain;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.12));
+}
+.cal-note__bubble {
+  position:relative;
+  --note-border:#e5e7eb;
+  --note-bg:#fafafa;
+  --note-color:#334155;
+  border:1px solid var(--note-border);
+  background:var(--note-bg);
+  color:var(--note-color);
+  font-weight:500;
+  border-radius:16px;
+  padding:12px 16px;
+  line-height:1.45;
+  box-shadow:0 6px 16px rgba(0,0,0,.08);
+  font-size: 13px;
+}
+.cal-note__bubble::after {
+  content:'';
+  position:absolute;
+  left:-8px;
+  top:20px;
+  width:14px;
+  height:14px;
+  background:var(--note-bg);
+  border-left:1px solid var(--note-border);
+  border-bottom:1px solid var(--note-border);
+  transform:rotate(45deg);
+  box-shadow:inherit;
+}
+.cal-note__text { display:block; }
+.cal-note--celebrate .cal-note__bubble {
+  --note-border:#bfe8d9;
+  --note-bg:#e7fbf3;
+  --note-color:#1f6a55;
+}
+.cal-note--empty .cal-note__bubble {
+  --note-border:#facc15;
+  --note-bg:#fff9db;
+  --note-color:#92400e;
+}
+.cal-note--encourage .cal-note__bubble {
+  --note-border:#bfdbfe;
+  --note-bg:#eff6ff;
+  --note-color:#1d4ed8;
+}
+.cal-note--future .cal-note__bubble {
+  --note-border:#c4b5fd;
+  --note-bg:#f5f3ff;
+  --note-color:#4338ca;
+}
 /* 토스트: 캘린더 상단에 겹쳐서 잠시 표시 */
 .cal-toast{
   position:absolute; left:50%; transform:translateX(-50%);
@@ -169,14 +229,15 @@
 
 /* 선택일 상세 */
 .day-detail{
-  margin-top:20px;
+  margin-top:0;
   border:1px solid #e5e7eb;
   border-radius:12px;
   background:#fff;
   display:flex;
   flex-direction:column;
-  max-height: 210px;
-  min-height:0;
+  max-height: 200px;
+  min-height:160px;
+  margin-bottom: -40px;
 }
 .day-head{
   position:sticky; top:0;

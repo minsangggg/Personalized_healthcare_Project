@@ -7,12 +7,17 @@ type Props = {
   postId: number
   onClose: () => void
   initial?: CookPost | null
+  currentUserId?: string
+  onRequestEdit?: (post: CookPost) => void
+  onDeleted?: () => void
 }
 
-export default function CookTestPostModal({ eventId, postId, onClose, initial }: Props) {
+export default function CookTestPostModal({ eventId, postId, onClose, initial, currentUserId, onRequestEdit, onDeleted }: Props) {
   const [post, setPost] = useState<CookPost | null>(initial ?? null)
   const [loading, setLoading] = useState(!initial)
   const [error, setError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     if (initial) return
@@ -29,6 +34,21 @@ export default function CookTestPostModal({ eventId, postId, onClose, initial }:
     })()
   }, [eventId, postId, initial])
 
+  const isOwner = post && currentUserId && String(post.user_id) === String(currentUserId)
+
+  const handleDelete = async () => {
+    if (!post || deleting) return
+    try {
+      setDeleting(true)
+      await cooktestAPI.deletePost(eventId, postId)
+      onDeleted?.()
+      onClose()
+    } catch (e: any) {
+      setError(e?.message ?? '삭제 실패')
+    } finally {
+      setDeleting(false)
+    }
+  }
   return (
     <ModalFrame onClose={onClose} title={post?.content_title ?? '게시글 상세'}>
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -36,6 +56,19 @@ export default function CookTestPostModal({ eventId, postId, onClose, initial }:
         {error && <div className="error">{error}</div>}
         {post && (
           <article className="feed-card" style={{ boxShadow:'none' }}>
+      {isOwner && (
+        <div style={{ display:'flex', gap:8, marginBottom:8, alignItems:'center', flexWrap:'wrap' }}>
+          <button className="btn ghost" onClick={() => post && onRequestEdit?.(post)} disabled={deleting}>수정</button>
+          <button
+            className="btn ghost"
+            style={{ color:'#b91c1c', borderColor:'#fca5a5' }}
+            onClick={() => setShowConfirm(true)}
+            disabled={deleting}
+          >
+            삭제
+          </button>
+        </div>
+      )}
             <div className="feed-head">
               <div className="feed-title">{post.content_title}</div>
               <div className="feed-meta">사용자 #{post.user_id} · {fmt(post.created_at)}</div>
@@ -47,6 +80,20 @@ export default function CookTestPostModal({ eventId, postId, onClose, initial }:
           </article>
         )}
       </div>
+      {showConfirm && (
+        <div className="modal-confirm-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-confirm">
+            <p>게시글을 삭제할까요?</p>
+            {error && <div className="error" style={{ marginBottom:8 }}>{error}</div>}
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button className="btn ghost" onClick={() => setShowConfirm(false)} disabled={deleting}>취소</button>
+              <button className="btn" style={{ background:'#dc2626', borderColor:'#b91c1c', color:'#fff' }} onClick={handleDelete} disabled={deleting}>
+                {deleting ? '삭제 중…' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ModalFrame>
   )
 }
