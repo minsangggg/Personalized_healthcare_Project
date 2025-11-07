@@ -76,7 +76,7 @@ export default function App() {
           )}
 
           {tab === 'cooktest' && (
-            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} userId={user?.user_id} />
           )}
 
           {tab === 'dashboard' && (

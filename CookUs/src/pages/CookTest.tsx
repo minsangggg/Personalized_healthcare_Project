@@ -6,9 +6,10 @@ import CookTestDetailModal from '../components/CookTestDetailModal'
 type Props = {
   isLoggedIn: boolean
   onRequireLogin: () => void
+  userId?: string
 }
 
-export default function CookTest({ isLoggedIn, onRequireLogin }: Props) {
+export default function CookTest({ isLoggedIn, onRequireLogin, userId }: Props) {
   const [events, setEvents] = useState<EventSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +60,7 @@ export default function CookTest({ isLoggedIn, onRequireLogin }: Props) {
           onClose={() => setActiveEventId(null)}
           isLoggedIn={isLoggedIn}
           onRequireLogin={onRequireLogin}
+          userId={userId}
         />
       )}
     </section>

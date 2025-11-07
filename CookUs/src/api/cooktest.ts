@@ -50,8 +50,9 @@ export const cooktestAPI = {
     return data
   },
 
-  async listPosts(eventId: number): Promise<CookPost[]> {
-    const { data } = await api.get(`/events/${eventId}/posts`)
+  async listPosts(eventId: number, view: 'all' | 'mine' | 'liked' = 'all'): Promise<CookPost[]> {
+    const params = view !== 'all' ? { view } : undefined
+    const { data } = await api.get(`/events/${eventId}/posts`, { params })
     return data
   },
 
@@ -65,9 +66,28 @@ export const cooktestAPI = {
     return data
   },
 
+  async updatePost(eventId: number, postId: number, body: { content_title: string; content_text: string }): Promise<CookPost> {
+    const { data } = await api.put(`/events/${eventId}/posts/${postId}`, body)
+    return data
+  },
+
+  async deletePost(eventId: number, postId: number): Promise<void> {
+    await api.delete(`/events/${eventId}/posts/${postId}`)
+  },
+
   async likePost(postId: number): Promise<{ likes: number }> {
     const { data } = await api.post(`/posts/${postId}/like`)
     return data
+  },
+
+  async unlikePost(postId: number): Promise<{ likes: number }> {
+    const { data } = await api.delete(`/posts/${postId}/like`)
+    return data
+  },
+
+  async myLikes(eventId: number): Promise<number[]> {
+    const { data } = await api.get(`/events/${eventId}/likes/me`)
+    return (data?.liked_post_ids ?? []) as number[]
   },
 
   async presignUploads(eventId: number, fileExts: string[]): Promise<{ upload_list: Array<{ upload_url: string; file_url: string; file_name: string }>; expires_in: number }>{
