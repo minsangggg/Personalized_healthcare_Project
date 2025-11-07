@@ -274,7 +274,7 @@ export default function CookTestDetailModal({
             </div>
             {isEventClosed && (
               <div className="podium-wrap">
-                {['silver', 'gold', 'bronze'].map((tier, idx) => {
+                {['silver', 'gold', 'bronze'].map((tier) => {
                   const rankNumber = tier === 'gold' ? 1 : tier === 'silver' ? 2 : 3
                   const group = podiumByRank.get(rankNumber) || []
                   const label = group && group.length
