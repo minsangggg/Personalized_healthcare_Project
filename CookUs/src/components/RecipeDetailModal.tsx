@@ -67,9 +67,9 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
     onSelectedChange?.(recipe.recipe_id, selected)
   }, [recipe.recipe_id, selected, onSelectedChange])
 
-  const steps = toLines((recipe as any).step_text)
+  const steps = parseSteps((recipe as any).step_text)
   const tips  = toLines((recipe as any).step_tip)
-  const ings  = toArray((recipe as any).ingredient_full)
+  const ings  = parseIngredients((recipe as any).ingredient_full)
 
   return (
     <FramePortal>
@@ -160,18 +160,70 @@ export default function RecipeDetailModal({ recipe, onClose, showSelect=true, co
 
 function toLines(x: any): string[]{
   if(!x) return []
-  if(Array.isArray(x)) return x.map(String).filter(Boolean)
-  if(typeof x==='string') return x.split(/\n+/).map(s=>s.trim()).filter(Boolean)
-  if(typeof x==='object') return Object.values(x).map(String).filter(Boolean)
+  if(Array.isArray(x)) return x.map((v)=>unescapeNewlines(String(v))).map(s=>s.trim()).filter(Boolean)
+  if(typeof x==='string') return unescapeNewlines(x).split(/\n+/).map(s=>s.trim()).filter(Boolean)
+  if(typeof x==='object') return Object.values(x).map((v)=>unescapeNewlines(String(v))).map(s=>s.trim()).filter(Boolean)
   return []
 }
 
-function toArray(x: any): string[]{
-  if(!x) return []
-  if(Array.isArray(x)) return x.map(String).filter(Boolean)
-  if(typeof x==='object') return Object.entries(x).map(([k,v])=>{
-    const vv = (v==null?'':String(v)).trim()
-    return vv ? `${k} ${vv}` : k
-  })
-  return String(x).split(/,|·|\n/).map(s=>s.trim()).filter(Boolean)
+function parseIngredients(x: any): string[] {
+  if (!x) return []
+  if (Array.isArray(x)) return x.map(String).filter(Boolean)
+  if (typeof x === 'object') {
+    return Object.entries(x).map(([k, v]) => {
+      const name = unescapeNewlines(String(k)).trim()
+      const amount = v == null ? '' : unescapeNewlines(String(v)).trim()
+      return amount ? `${name} ${amount}` : name
+    }).filter(Boolean)
+  }
+  if (typeof x === 'string') {
+    const trimmed = unescapeNewlines(x).trim()
+    if (!trimmed) return []
+    if (/^[{\[]/.test(trimmed)) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        return parseIngredients(parsed)
+      } catch {
+        // fall through to plain text parsing
+      }
+    }
+    return trimmed
+      .split(/[,·\n]+/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function parseSteps(x: any): string[] {
+  if (!x) return []
+  const raw: string[] = []
+  if (Array.isArray(x)) raw.push(...x)
+  else if (typeof x === 'object') raw.push(...Object.values(x))
+  else raw.push(String(x))
+
+  const steps: string[] = []
+  raw
+    .map((item) => unescapeNewlines(String(item)).replace(/\r/g, '\n'))
+    .forEach((block) => {
+      block.split(/\n+/).forEach((line) => {
+        const trimmed = line.trim()
+        if (!trimmed) return
+        const pieces = trimmed.split(/(?=\d+\s*[.)])/)
+        if (pieces.length > 1) {
+          pieces.forEach((piece) => {
+            const cleaned = piece.replace(/^\d+\s*[.)]\s*/, '').trim()
+            if (cleaned) steps.push(cleaned)
+          })
+        } else {
+          const cleaned = trimmed.replace(/^\d+\s*[.)]\s*/, '').trim()
+          if (cleaned) steps.push(cleaned)
+        }
+      })
+    })
+  return steps.map((s) => s.replace(/\\n/g, ' ').trim())
+}
+
+function unescapeNewlines(value: string): string {
+  return value.replace(/\\n/g, '\n')
 }
