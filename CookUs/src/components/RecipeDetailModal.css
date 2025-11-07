@@ -29,6 +29,7 @@
   padding:10px 12px; margin-bottom:6px;
   border-bottom:1px solid #E3C881;
 }
+.rec-head .btn.sm{ margin-bottom:0px; } /* Shorts 버튼을 헤더 기준으로 조금 아래로 */
 .rec-head h3{ margin:0; font-size:18px; color:#5b3a22; }
 .rec-x{
   width:32px; height:32px; border-radius:50%;

@@ -14,7 +14,6 @@ export default function ModalFrame({
   children: ReactNode;
 }) {
   const host = document.querySelector('.app-frame') ?? document.body;
-
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal login" onClick={(e) => e.stopPropagation()}>

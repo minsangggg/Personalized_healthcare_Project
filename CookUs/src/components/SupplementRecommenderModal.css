@@ -1,0 +1,27 @@
+.reco-body select{
+  width:100%;
+  border:1px solid #ddd;
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:14px;
+  background:#fff;
+  color:#3b2a1d;
+}
+.reco-body select:focus{
+  outline:none;
+  border-color:#F39C3A;
+  box-shadow:0 0 0 3px rgba(243,156,58,.18);
+}
+.reco-body .label{ font-size:13px; color:#555; margin:0 0 4px }
+
+/* Card results */
+.reco-sections{ display:grid; gap:14px }
+.reco-section{ display:grid; gap:10px }
+.reco-goal{ font-weight:900; color:#3b2a1d }
+.reco-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px }
+.reco-card{ text-align:left; border:1px solid #eee; border-radius:12px; background:#fff; padding:12px; cursor:pointer }
+.reco-card:hover{ border-color:#e3c881; box-shadow:0 3px 10px rgba(0,0,0,.06) }
+.reco-card .r-name{ font-weight:800; color:#3b2a1d; margin-bottom:6px }
+.reco-card .r-meta{ display:flex; align-items:center; gap:8px; color:#6b7280 }
+.reco-card .badge{ display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:#fff7e2; border:1px solid #f3d08a; color:#7b4e2d }
+.reco-card .timing{ font-size:12px; color:#555 }

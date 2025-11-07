@@ -1,0 +1,24 @@
+.	cooktest-wrap { display:flex; flex-direction:column; gap:16px; }
+.cooktest-header h2 { margin:0; }
+.cooktest-header .muted { color:#666; margin-top:4px; }
+.event-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
+.event-card { text-align:left; border:1px solid #eee; border-radius:10px; padding:14px; background:#fff; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
+.event-card:hover { border-color:#ddd; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.event-title { font-weight:700; font-size:16px; }
+.event-dates { color:#666; font-size:13px; }
+.event-meta { color:#444; font-size:13px; }
+.hint { color:#666; }
+.error { color:#c00; }
+.feed-card { border:1px solid #eee; border-radius:10px; padding:12px; background:#fff; }
+.feed-head { display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
+.feed-title { font-weight:700; }
+.feed-meta { color:#777; font-size:12px; }
+.feed-body { white-space:pre-wrap; line-height:1.5; }
+.feed-image { width:100%; max-height:420px; object-fit:cover; border-radius:8px; margin-top:8px; }
+.feed-actions { display:flex; justify-content:flex-end; margin-top:8px; }
+.form-vert { display:flex; flex-direction:column; gap:10px; }
+.form-vert .label { font-size:13px; color:#555; margin-bottom:4px; }
+.form-vert input, .form-vert textarea { width:100%; border:1px solid #ddd; border-radius:8px; padding:8px 10px; font-size:14px; }
+/* app-tab layout integration */
+.cooktest.app-tab { display:grid; grid-template-rows:auto 1fr; row-gap:12px; width:100%; }
+.cooktest .cooktest-header{ justify-self:stretch; text-align:left }

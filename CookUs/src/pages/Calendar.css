@@ -163,6 +163,10 @@
   background: #f0fff4;
 }
 
+/* Ensure selection ring is not visually cut on the rightmost column */
+.calendar .weeks .cell.day.sel { border-right-color: #86efac; }
+.calendar .weeks .cell.day.sel:nth-child(7n) { border-right: 1px solid #86efac; }
+
 /* 선택일 상세 */
 .day-detail{
   margin-top:20px;

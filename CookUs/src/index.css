@@ -55,3 +55,30 @@ body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--font) 
 .clamp-1{ line-clamp:1; -webkit-line-clamp:1; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
 .clamp-2{ line-clamp:2; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
 .clamp-3{ line-clamp:3; -webkit-line-clamp:3; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden }
+
+/* ───────── Notifications (bell) ───────── */
+.noti{ position:absolute; top:8px; left:8px; z-index:20 }
+.noti .bell{
+  appearance:none; border:1px solid var(--paper-bd); background:#fff; color:#3b2a1d;
+  width:36px; height:36px; border-radius:10px; display:grid; place-items:center; cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.06);
+}
+.noti .badge{
+  position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px;
+  border-radius:9px; background:#e74c3c; color:#fff; font-size:11px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid #fff;
+}
+.noti .dropdown{
+  position:absolute; top:42px; left:0; width:300px; max-height:340px; overflow:auto;
+  background:#fff; border:1px solid var(--paper-bd); border-radius:12px; box-shadow:var(--shadow);
+}
+.noti .dropdown .empty{ padding:14px; color:#6b5b4a; font-size:13px }
+.noti .dropdown .item{ position:relative; padding:10px 12px 10px 20px; background:#fff; cursor:pointer }
+.noti .dropdown .item + .item{ border-top:1px solid rgba(0,0,0,.06) }
+.noti .dropdown .item.unread{ background:#FFF7E6 }
+.noti .dropdown .item.unread::before{
+  content:""; position:absolute; left:8px; top:14px; width:6px; height:6px; border-radius:50%; background:var(--accent);
+}
+.noti .dropdown .title{ font-weight:800; font-size:13px; color:#3b2a1d }
+.noti .dropdown .body{ font-size:12px; color:#6b5b4a; margin-top:2px }
+.noti .dropdown .time{ font-size:11px; color:#9a8c7d; margin-top:4px }

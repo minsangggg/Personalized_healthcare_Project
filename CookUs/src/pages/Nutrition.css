@@ -1,0 +1,48 @@
+.nutrition.app-tab{ display:grid; grid-template-rows:auto 1fr; gap:12px; width:100%; justify-items:stretch; padding: 10px 20px 0px 20px; }
+.nutrition .nt-header{ width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left }
+.nutrition .nt-header .title{ margin:0 }
+.nutrition .nt-header .actions{ display:flex; gap:8px }
+.nutrition .nt-grid{ width:100%; display:grid; grid-template-columns: minmax(0,1fr); gap:14px; align-items:start }
+.nutrition .nt-grid > *{ min-width:0 }
+/* Always stack: calendar on top, daily check below */
+@media (min-width: 860px){ .nutrition .nt-grid{ grid-template-columns: minmax(0,1fr) } }
+.nutrition .card{ background:#fff; border:1px solid var(--paper-bd); border-radius:14px; padding:10px 14px; box-shadow:0 2px 6px rgba(0,0,0,.04); text-align:left; height: 200px; }
+.nutrition .sec-title{ margin:0 0 10px; font-size:15px; font-weight:800 }
+.nutrition .icon-btn.small{ appearance:none; background:transparent; border:1px solid #e5e7eb; border-radius:8px; width:28px; height:28px; display:inline-grid; place-items:center; cursor:pointer }
+.nutrition .icon-btn.small:hover{ background:#fafafa }
+
+/* Daily check cards */
+.nutrition .check-list{ display:grid; gap:8px }
+.nutrition .check-list-wrap{ max-height: 280px; overflow:auto; -webkit-overflow-scrolling:touch; padding-right:4px }
+.nutrition .check-item{
+  display:grid; grid-template-columns: 1fr auto auto; align-items:center; gap:8px;
+  border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px;
+}
+.nutrition .check-item .info .name{ font-weight:800; color:#3b2a1d; font-size:14px }
+.nutrition .check-item .info .slot{ color:#777; font-size:12px }
+.nutrition .check-toggle{ appearance:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:6px 10px; cursor:pointer; font-weight:700; font-size:13px }
+.nutrition .check-toggle:hover{ background:#fafafa }
+.nutrition .check-item.on{ background:#f0fff4; border-color:#86efac }
+.nutrition .check-item.on .check-toggle{ background:#e7fbf3; border-color:#bfe8d9 }
+.nutrition .check-item.disabled{ opacity:.6 }
+
+/* square checkbox style */
+.nutrition .chkbox{ width:30px; height:30px; border:2px solid #e5e7eb; border-radius:8px; background:#fff; display:inline-grid; place-items:center; cursor:pointer; font-weight:900; color:#16a34a; font-size:18px }
+.nutrition .chkbox:hover{ background:#fafafa }
+.nutrition .chkbox.on{ border-color:#86efac; background:#e7fbf3 }
+.nutrition .chkbox:disabled{ opacity:.5; cursor:not-allowed }
+
+/* Make only the checklist area scroll inside the card */
+.nutrition .daily-card{ display:flex; flex-direction:column; max-height: 440px }
+.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow:auto; -webkit-overflow-scrolling:touch }
+.nutrition .intake-list{ display:flex; flex-direction:column; gap:10px }
+.nutrition .intake-item .line1{ display:flex; align-items:center; justify-content:space-between }
+.nutrition .intake-item .name{ font-weight:700 }
+.nutrition .intake-item .dose{ color:#555 }
+.nutrition .intake-item .time{ color:#777; font-size:12px }
+.nutrition .rec-list{ margin:0; padding-left:18px }
+.nutrition .rec-item{ margin-bottom:8px }
+.nutrition .rname{ font-weight:700 }
+.nutrition .rreason{ color:#555 }
+
+/* Nutrition calendar reuses global .calendar styles; custom dot color applied inline */

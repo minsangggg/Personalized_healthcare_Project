@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+docker-entrypoint.sh
+nginx.conf.template
+Dockerfile
+.dockerignore
+package-lock.json

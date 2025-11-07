@@ -67,7 +67,7 @@
 .rc-foot{
   display:flex;
   justify-content:flex-end;
-  margin-top:6px;
+  margin-top:6px; /* 기본 간격 유지: 자세히보기 영향 없음 */
 }
 
 /* 버튼은 앱 공통 클래스(.btn .primary) 사용 */
@@ -95,6 +95,7 @@
 
 
 .rc-foot { display:flex; gap:8px; justify-content: flex-end; align-items:center; }
+.rc-foot .btn.sm{ margin-bottom:0px; } /* Shorts 버튼을 살짝 아래로 */
 .btn.danger.outline {
   border: 1px solid #ef4444;
   background: #fff;

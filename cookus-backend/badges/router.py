@@ -2,6 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from .schemas import BadgeOverview, EarnedBadge, LockedBadge, Progress
 from .repository import fetch_overview, own_badge, deactivate_all, activate_one
 
+from notifications.service import notify
+from core.database import get_conn
+from .repository import award_if_absent
+
 # ① 너희 인증 의존성에 맞게 import
 #    - JWT에서 유저 꺼내는 함수가 있으면 그걸 사용
 #    - 예: from auth.service import get_current_user  (있다면)
@@ -12,6 +16,7 @@ def get_current_user_id(x_user_id: str | None = Header(default=None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return x_user_id
 # ↑ 실제 배포 시엔 auth의 함수로 교체
+
 
 router = APIRouter(prefix="/me/badges", tags=["badges"])
 
@@ -53,3 +58,22 @@ def activate_badge(
 def deactivate_badge(user_id: str = Depends(get_current_user_id)):
     deactivate_all(user_id)
     return {"ok": True}
+
+@router.post("/{badge_id}/award")
+def award_badge(
+    badge_id: int = Path(..., ge=1),
+    user_id: str = Depends(get_current_user_id),
+):
+    awarded = award_if_absent(user_id, badge_id)
+    if awarded:
+        # 알림 저장
+        notify(
+            user_id=user_id,
+            title="배지 지급",
+            body=f"축하합니다! {badge_id} 배지를 획득했어요.",
+            link_url="/me/badges",
+            type="badge",
+            related_id=badge_id,
+        )
+    return {"ok": True, "awarded": bool(awarded)}
+
