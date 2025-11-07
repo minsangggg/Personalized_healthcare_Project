@@ -34,6 +34,57 @@ export default function CookTestDetailModal({
   const [pendingLikes, setPendingLikes] = useState<Set<number>>(new Set())
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [filterView, setFilterView] = useState<FilterView>('all')
+  const [showPosts, setShowPosts] = useState(true)
+  const isEventClosed = useMemo(() => {
+    if (!event) return false
+    const end = new Date(event.end_date)
+    const now = new Date()
+    return now.getTime() > end.getTime()
+  }, [event])
+
+  const sortedPosts = useMemo(() => {
+    const base = [...posts].sort((a, b) => {
+      if (b.likes !== a.likes) return b.likes - a.likes
+      return a.post_id - b.post_id
+    })
+    return isEventClosed ? base : posts
+  }, [posts, isEventClosed])
+
+  const uniquePodiumEntries = useMemo(() => {
+    if (!isEventClosed) return []
+    const sortedAll = [...allPosts].sort((a, b) => {
+      if (b.likes !== a.likes) return b.likes - a.likes
+      return a.post_id - b.post_id
+    })
+    const seen = new Set<string>()
+    return sortedAll.filter((p) => {
+      const key = String(p.user_id)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [allPosts, isEventClosed])
+
+  const podiumByRank = useMemo(() => {
+    const map = new Map<number, CookPost[]>()
+    if (!isEventClosed) return map
+    let currentRank = 1
+    let index = 0
+    while (index < uniquePodiumEntries.length && currentRank <= 3) {
+      let tieEnd = index + 1
+      while (
+        tieEnd < uniquePodiumEntries.length &&
+        uniquePodiumEntries[tieEnd].likes === uniquePodiumEntries[index].likes
+      ) {
+        tieEnd++
+      }
+      map.set(currentRank, uniquePodiumEntries.slice(index, tieEnd))
+      const tieSize = tieEnd - index
+      currentRank += tieSize
+      index = tieEnd
+    }
+    return map
+  }, [uniquePodiumEntries, isEventClosed])
 
   const loadPosts = async (view: FilterView) => {
     setError(null)
@@ -72,6 +123,10 @@ export default function CookTestDetailModal({
   useEffect(() => {
     initialize()
   }, [eventId])
+
+  useEffect(() => {
+    setShowPosts(!isEventClosed)
+  }, [eventId, isEventClosed])
 
   useEffect(() => {
     if (filterView === 'all') {
@@ -114,11 +169,15 @@ export default function CookTestDetailModal({
   const hasReachedLimit = isLoggedIn && !!userId && myPostCount >= 3
 
   useEffect(() => {
-    if (!hasReachedLimit) setLimitMessage(null)
-  }, [hasReachedLimit])
+    if (!isEventClosed && !hasReachedLimit) setLimitMessage(null)
+  }, [hasReachedLimit, isEventClosed])
 
   const ensureLoginAndOpenCreate = () => {
     if (!isLoggedIn) return onRequireLogin()
+    if (isEventClosed) {
+      setLimitMessage('참여 기간이 지난 대회입니다')
+      return
+    }
     if (hasReachedLimit) {
       setLimitMessage('이미 3번을 다 참여하셨어요')
       return
@@ -213,25 +272,39 @@ export default function CookTestDetailModal({
             <div style={{ color: '#888', marginTop: 6 }}>
               {fmt(event.start_date)} ~ {fmt(event.end_date)}
             </div>
+            {isEventClosed && (
+              <div className="podium-wrap">
+                {['silver', 'gold', 'bronze'].map((tier, idx) => {
+                  const rankNumber = tier === 'gold' ? 1 : tier === 'silver' ? 2 : 3
+                  const group = podiumByRank.get(rankNumber) || []
+                  const label = group && group.length
+                    ? group.map(p => `#${p.user_id}`).join(', ')
+                    : '빈자리'
+                  const rankLabel = `${rankNumber}위`
+                  return (
+                    <div key={tier} className={`podium-tier podium-${tier}`}>
+                      <span className="podium-rank">{rankLabel}</span>
+                      <span className="podium-user">{label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
         <div className="cooktest-actions">
-          <label className="cooktest-view-select">
-            <span>보기</span>
-            <select
-              value={filterView}
-              onChange={e => handleFilterChange(e.target.value as FilterView)}
-            >
-              <option value="all">전체</option>
-              <option value="liked">내 좋아요</option>
-              <option value="mine">내 글</option>
-            </select>
-          </label>
-          <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-            <button className="btn" onClick={ensureLoginAndOpenCreate}>
-              참가하기
+          <div className="cooktest-actions-right">
+            <button className="btn ghost toggle-btn" onClick={() => setShowPosts(p => !p)}>
+              {showPosts ? '게시글 숨기기' : '게시글 보기'}
             </button>
+            {!isEventClosed ? (
+              <button className="btn" onClick={ensureLoginAndOpenCreate}>
+                참가하기
+              </button>
+            ) : (
+              <div className="cooktest-closed-tag">참여 기간이 지난 대회입니다</div>
+            )}
             {limitMessage && <div className="limit-message">{limitMessage}</div>}
           </div>
         </div>
@@ -239,8 +312,26 @@ export default function CookTestDetailModal({
         {loading && <div className="hint">불러오는 중…</div>}
         {error && <div className="error">{error}</div>}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {posts.map(p => {
+        {!showPosts && (
+          <div className="hint">게시글 보기를 눌러 좋아요 순위 게시글을 확인하세요.</div>
+        )}
+        {showPosts && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="cooktest-filter-bar">
+              <label className="cooktest-view-select">
+                <span>보기</span>
+                <select
+                  value={filterView}
+                  onChange={e => handleFilterChange(e.target.value as FilterView)}
+                >
+                  <option value="all">전체</option>
+                  <option value="liked">내 좋아요</option>
+                  <option value="mine">내 글</option>
+                </select>
+              </label>
+              {filterView !== 'all' && <div className="hint small">조건에 맞는 게시글만 표시돼요.</div>}
+            </div>
+          {sortedPosts.map(p => {
             const liked = likedSet.has(p.post_id)
             const busy = pendingLikes.has(p.post_id)
             return (
@@ -272,7 +363,7 @@ export default function CookTestDetailModal({
                     className={`heart-btn ${liked ? 'on' : ''} ${busy ? 'pulse' : ''}`}
                     onClick={() => toggleLike(p.post_id, liked)}
                     aria-pressed={liked}
-                    disabled={busy}
+                    disabled={busy || isEventClosed}
                   >
                     <span className="heart-icon" aria-hidden>{liked ? '♥' : '♡'}</span>
                     <span className="heart-count">{p.likes}</span>
@@ -284,7 +375,8 @@ export default function CookTestDetailModal({
           {!loading && posts.length === 0 && (
             <div className="hint">조건에 맞는 게시글이 없어요.</div>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {showCreate && (
