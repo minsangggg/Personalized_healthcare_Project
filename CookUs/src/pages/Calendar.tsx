@@ -200,15 +200,16 @@ export default function Calendar({ isLoggedIn, userName }: CalendarProps) {
     if (!selectedDay) return null
     if (isFutureSelected) {
       return {
-        text: '미래 날짜에는 또 오실거죠? 예약된 요리를 기대하고 있을게요!',
+        text: '또 오실거죠? 요리를 기대하고 있을게요!',
         tone: 'future' as const,
         toastKind: 'ok' as const
       }
     }
     const isToday = selectedDay === todayStr
     if (selectedRecipes.length === 0) {
+      const emptyDayLabel = isToday ? '오늘은' : `${selectedDay}에는`
       return {
-        text: '해당 날에 저장된 요리가 없어요! 추천을 받아서 선택해보세요!',
+        text: `${emptyDayLabel} 저장된 요리가 없어요! 추천을 받아서 선택해보세요!`,
         tone: 'empty' as const,
         toastKind: 'warn' as const
       }

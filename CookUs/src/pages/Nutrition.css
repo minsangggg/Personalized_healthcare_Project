@@ -4,31 +4,50 @@
   gap:12px;
   width:100%;
   justify-items:stretch;
-  padding: 10px 25px 0 20px;
+  padding: 10px 20px 0 20px;
   overflow:hidden;
 }
-.nutrition .nt-header{ width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left }
+.nutrition .nt-header{ width:100%; display:flex; align-items:center; justify-content:space-between; text-align:left; }
 .nutrition .nt-header .title{ margin:0 }
 .nutrition .nt-header .actions{ display:flex; gap:8px }
+.nutrition .nt-header .actions .btn{
+  padding:6px 12px;
+  min-height:35px;
+  line-height:1.1;
+  font-size:13px;
+}
 .nutrition .nt-grid{
   width:100%;
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
   align-items:stretch;
   box-sizing:border-box;
 }
 .nutrition .nt-grid > *{ min-width:0 }
 .nutrition .nt-calendar{
-  flex:0 0 340px;
+  flex:340px;
   max-width:100%;
 }
 .nutrition .nt-calendar-inner{
-  --nut-cal-cell: 43px;
+  --nut-cal-cell: 45px;
   padding: 0px;
 }
+.nutrition .nt-calendar .cal-controls .btn{
+  padding:4px 10px;
+  min-height:30px;
+  line-height:1;
+  font-size:12px;
+  margin-top: 3px;
+}
+.nutrition .nt-calendar .cal-controls .btn.ghost{
+  padding:4px;
+  width:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 .nutrition .nt-calendar-inner .cal-card{
-  max-width:340px;
+  max-width:370px;
   margin:0 auto;
 }
 
@@ -43,7 +62,7 @@
   align-items:center;
   justify-content:center;
   font-size:14px;
-  border-radius:10px;
+  border-radius:18px;
 }
 .nutrition .nt-calendar-inner .weeks .cell.day{
   padding:0;
@@ -54,19 +73,19 @@
   justify-content:center;
   flex-direction:column;
   gap:4px;
-  border-radius:10px;
+  border-radius:18px;
 }
 .nutrition .nt-calendar-inner .weeks .cell.day .dnum{
   font-size:13px;
 }
 .nutrition .nt-calendar-inner .weeks .cell.day .dot{
   position:static;
-  width:6px;
-  height:6px;
+  width:5px;
+  height:5px;
 }
 
 .nutrition .nt-calendar-inner .calendar{
-  height:300px;
+  height:320px;
 }
 
 .nutrition .card{
@@ -76,16 +95,17 @@
   padding:10px 14px;
   box-shadow:0 2px 6px rgba(0,0,0,.04);
   text-align:left;
-  min-height:200px;
+  min-height:220px;
   height:auto;
 }
 .nutrition .daily-card{
-  flex:1 1 300px;
+  flex:1 1 320px;
   max-width:min(100%, 620px);
   display:flex;
   flex-direction:column;
-  max-height:400px;
+  max-height:220px;
   margin-bottom: 10px;
+  overflow:hidden;
 }
 
 .nt-calendar .cal-header{
@@ -94,11 +114,12 @@
   height: 20px;
 }
 .nutrition .nut-note{
-  flex:0 0 220px;
-  max-width:260px;
+  flex:400px;
+  max-width:400px;
   display:flex;
+  justify-content: center;
   align-items:stretch;
-  gap:12px;
+  gap:10px;
   margin:0;
   font-size:13px;
 }
@@ -111,12 +132,14 @@
   border:1px solid var(--note-border);
   background:var(--note-bg);
   color:var(--note-color);
-  font-weight:700;
+  font-weight:500;
   border-radius:16px;
-  padding:12px 16px;
+  padding:8px 10px;
   line-height:1.45;
   box-shadow:0 6px 16px rgba(0,0,0,.08);
-  max-width:220px;
+  max-width:400px;
+  height: 55px;
+  align-content: center;
 }
 .nutrition .nut-note__bubble::after{
   content:'';
@@ -168,7 +191,6 @@
 
 /* Daily check cards */
 .nutrition .check-list{ display:grid; gap:8px }
-.nutrition .check-list-wrap{ max-height: 270px; overflow:hidden; -webkit-overflow-scrolling:touch; padding-right:4px }
 .nutrition .check-item{
   display:grid; grid-template-columns: 1fr auto auto; align-items:center; gap:8px;
   border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px;
@@ -188,7 +210,7 @@
 .nutrition .chkbox:disabled{ opacity:.5; cursor:not-allowed }
 
 /* Make only the checklist area scroll inside the card */
-.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow:hidden; -webkit-overflow-scrolling:touch }
+.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-right:4px }
 .nutrition .intake-list{ display:flex; flex-direction:column; gap:10px }
 .nutrition .intake-item .line1{ display:flex; align-items:center; justify-content:space-between }
 .nutrition .intake-item .name{ font-weight:700 }
@@ -200,8 +222,3 @@
 .nutrition .rreason{ color:#555 }
 
 /* Nutrition calendar reuses global .calendar styles; custom dot color applied inline */
-
-
-
-
-
