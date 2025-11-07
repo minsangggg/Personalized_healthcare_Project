@@ -5,6 +5,38 @@ import './AddIngredientModal.css'
 
 type Props = { onClose: (saved: boolean) => void }
 
+type UnitMeta = {
+  unit: '개' | 'g' | 'ml'
+  step: number
+}
+
+const SPECIFIC_UNIT_MAP: Record<string, UnitMeta> = {
+  파스타면: { unit: 'g', step: 100 },
+  '소고기 안심': { unit: 'g', step: 100 },
+  '돼지고기 안심': { unit: 'g', step: 100 },
+  닭가슴살: { unit: 'g', step: 100 },
+  휘핑크림: { unit: 'ml', step: 100 },
+  생크림: { unit: 'ml', step: 100 },
+}
+
+const LIQUID_KEYWORDS = ['물', '주스', '소스', '오일', '식용유', '식초', '청', '육수', '국물', '우유', '크림', '액', '드레싱']
+const WEIGHT_KEYWORDS = ['고기', '살', '육', '가루', '분말', '쌀', '파스타', '면', '버터', '치즈', '햄', '베이컨']
+const defaultMeta: UnitMeta = { unit: '개', step: 1 }
+
+const getUnitMeta = (name: string): UnitMeta => {
+  if (!name) return defaultMeta
+  const exact = SPECIFIC_UNIT_MAP[name.trim()]
+  if (exact) return exact
+  const normalized = name.replace(/\s+/g, '').toLowerCase()
+  if (LIQUID_KEYWORDS.some(k => normalized.includes(k))) {
+    return { unit: 'ml', step: 100 }
+  }
+  if (WEIGHT_KEYWORDS.some(k => normalized.includes(k))) {
+    return { unit: 'g', step: 100 }
+  }
+  return defaultMeta
+}
+
 export default function AddIngredientModal({ onClose }: Props) {
   // 검색
   const [q, setQ] = useState('')
@@ -42,19 +74,27 @@ export default function AddIngredientModal({ onClose }: Props) {
     return () => { cancel = true }
   }, [q])
 
-  const pickedList: Ingredient[] = useMemo(
-    () => Object.entries(picked).map(([name, quantity]) => ({ name, quantity })),
+  const pickedList = useMemo(
+    () => Object.entries(picked).map(([name, quantity]) => ({ name, quantity, meta: getUnitMeta(name) })),
     [picked]
   )
 
-  const inc = (name: string, d = 1) =>
+  const adjustQty = (name: string, stepDelta: number) =>
     setPicked(p => {
-      const n = Math.max(1, (p[name] ?? 0) + d)
-      return { ...p, [name]: n }
+      const meta = getUnitMeta(name)
+      const current = p[name] ?? meta.step
+      const next = Math.max(meta.step, current + stepDelta * meta.step)
+      return { ...p, [name]: next }
     })
 
   const setQty = (name: string, v: number) =>
-    setPicked(p => ({ ...p, [name]: Math.max(1, v || 1) }))
+    setPicked(p => {
+      const meta = getUnitMeta(name)
+      const step = meta.step
+      const valid = Number.isFinite(v) ? Math.max(step, v) : step
+      const rounded = Math.round(valid / step) * step
+      return { ...p, [name]: rounded || step }
+    })
 
   const remove = (name: string) =>
     setPicked(p => {
@@ -63,10 +103,15 @@ export default function AddIngredientModal({ onClose }: Props) {
     })
 
   const addFromSearch = (name: string) =>
-    setPicked(p => ({ ...p, [name]: p[name] ? p[name] + 1 : 1 }))
+    setPicked(p => {
+      const meta = getUnitMeta(name)
+      const current = p[name]
+      const next = current ? current + meta.step : meta.step
+      return { ...p, [name]: next }
+    })
 
   const save = async () => {
-    const items = pickedList
+    const items: Ingredient[] = pickedList.map(({ name, quantity }) => ({ name, quantity }))
     await fridgeAPI.saveFridge(items, 'replace', true)
     onClose(true)
   }
@@ -114,19 +159,21 @@ export default function AddIngredientModal({ onClose }: Props) {
         {pickedList.length === 0 ? (
           <div style={{ opacity: .7 }}>현재 담긴 재료가 없습니다.</div>
         ) : (
-          <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
+          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
             {pickedList.map(it => (
-              <div key={it.name} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ minWidth: 100 }}>{it.name}</div>
-                <button className="btn secondary" onClick={() => inc(it.name, -1)}>-</button>
+              <div key={it.name} className="ingredient-row">
+                <div className="ingredient-name">{it.name}</div>
+                <button className="btn secondary" onClick={() => adjustQty(it.name, -1)}>-</button>
                 <input
                   type="number"
-                  min={1}
-                  value={it.quantity ?? 1}
+                  min={it.meta.step}
+                  step={it.meta.step}
+                  value={it.quantity ?? it.meta.step}
                   onChange={e => setQty(it.name, Number(e.target.value))}
-                  style={{ width: 70, padding: '8px 10px', borderRadius: 8, border: '1px solid #e6e1d8' }}
+                  className="qty-input"
                 />
-                <button className="btn secondary" onClick={() => inc(it.name, +1)}>+</button>
+                <span className="ingredient-unit">{it.meta.unit}</span>
+                <button className="btn secondary" onClick={() => adjustQty(it.name, +1)}>+</button>
                 <button className="btn" onClick={() => remove(it.name)}>삭제</button>
               </div>
             ))}
