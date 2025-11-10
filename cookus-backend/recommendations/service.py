@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Dict, List
 
 from fastapi import HTTPException
@@ -157,7 +157,17 @@ class RecommendationService:
         with get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT sr.selected_id
+                SELECT
+                  sr.selected_id,
+                  CASE
+                    WHEN sr.selected_date REGEXP '^[0-9]{4}/'
+                      THEN DATE(STR_TO_DATE(sr.selected_date, '%%Y/%%m/%%d %%H:%%i:%%s'))
+                    WHEN sr.selected_date REGEXP '^[0-9]{4}-'
+                      THEN DATE(sr.selected_date)
+                    WHEN sr.selected_date REGEXP '^[0-9]{4}[.]'
+                      THEN DATE(STR_TO_DATE(sr.selected_date, '%%Y.%%m.%%d %%H:%%i:%%s'))
+                    ELSE NULL
+                  END AS selected_date_only
                 FROM selected_recipe sr
                 JOIN recommend_recipe rr ON sr.recommend_id = rr.recommend_id
                 WHERE sr.id=%s AND rr.id=%s AND rr.recipe_id=%s
@@ -166,7 +176,20 @@ class RecommendationService:
                 (user_id, user_id, recipe_id),
             )
             row = cur.fetchone()
-        return {"selected": bool(row), "selected_id": (row or {}).get("selected_id")}
+        if not row:
+            return {"selected": False, "selected_id": None, "selected_date": None}
+
+        selected_date = row.get("selected_date_only")
+        if isinstance(selected_date, datetime):
+            selected_date = selected_date.date()
+        today = date.today()
+        is_today = bool(selected_date and selected_date == today)
+
+        return {
+            "selected": is_today,
+            "selected_id": row["selected_id"] if is_today else None,
+            "selected_date": selected_date.isoformat() if selected_date else None,
+        }
 
     def get_recommendation_detail(self, user_id: str, recommend_id: int) -> Dict[str, Any]:
         with get_conn() as conn, conn.cursor() as cur:
