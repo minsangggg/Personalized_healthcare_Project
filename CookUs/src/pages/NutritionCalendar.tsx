@@ -110,9 +110,16 @@ function colorOf(stat?: DayStatus) {
 
 function dotColor(stat: DayStatus, isFuture: boolean) {
   if (isFuture) return '#9ca3af' // gray for future dates
-  if (stat.taken === 0) return '#ef4444' // red
-  if (stat.taken === stat.total) return '#16a34a' // green
-  return '#f59e0b' // yellow
+
+  const taken = Math.max(0, stat.taken ?? 0)
+  const total = Math.max(0, stat.total ?? 0)
+
+  if (taken === 0) {
+    return total === 0 ? '#9ca3af' : '#ef4444' // nothing scheduled vs missed
+  }
+  if (total === 0) return '#16a34a' // historical intake that no longer has a plan
+  if (taken >= total) return '#16a34a' // completed (protect against stale totals)
+  return '#f59e0b' // partial
 }
 
 function titleOf(stat?: DayStatus) {
