@@ -216,6 +216,15 @@
   border-radius: 999px;
   background: #16a34a; /* 초록 점 */
 }
+.calendar .cell.day .dot.dot--cooked {
+  width: 12px;
+  height: 12px;
+  right: 6px;
+  bottom: 6px;
+  background: #facc15;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
 
 /* 선택된 날 */
 .calendar .cell.day.sel {

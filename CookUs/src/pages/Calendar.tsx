@@ -316,7 +316,9 @@ export default function Calendar({ isLoggedIn, userName }: CalendarProps) {
                 {cells.map((d, i) => {
                   const dayStr = ymd(d)
                   const inMonth = isSameMonth(d)
-                  const count = inMonth ? (monthBuckets.get(d.getDate())?.length ?? 0) : 0
+                  const dayRows = inMonth ? (monthBuckets.get(d.getDate()) ?? []) : []
+                  const count = dayRows.length
+                  const hasCooked = dayRows.some((row) => (row.action ?? 0) === 1)
 
                   const classes = [
                     'cell','day',
@@ -334,7 +336,9 @@ export default function Calendar({ isLoggedIn, userName }: CalendarProps) {
                       title={count > 0 ? `${count}개 기록` : undefined}
                     >
                       <span className="dnum">{d.getDate()}</span>
-                      {count > 0 && <span className="dot" aria-hidden />}
+                      {count > 0 && (
+                        <span className={`dot ${hasCooked ? 'dot--cooked' : ''}`} aria-hidden />
+                      )}
                     </button>
                   )
                 })}
