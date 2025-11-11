@@ -2,48 +2,68 @@
 import { useEffect, useRef, useState } from 'react'
 import { notificationsAPI, type NotificationRow } from '../api/notifications'
 
+function dedupeAndSort(list: NotificationRow[]): NotificationRow[] {
+  const map = new Map<number, NotificationRow>()
+  for (const n of list) map.set(n.notification_id, n)
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+}
+
 export default function Notifications({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [open, setOpen] = useState(false)
   const [list, setList] = useState<NotificationRow[]>([])
-  const timerRef = useRef<number | null>(null)
+  const pollTimerRef = useRef<number | null>(null)
+  const closeStreamRef = useRef<(() => void) | null>(null)
 
   const fetchOnce = async () => {
     try {
       const rows = await notificationsAPI.list()
-      setList(rows)
+      setList(prev => dedupeAndSort([...rows, ...prev])) // 초기 적재 + 중복제거
     } catch (e) {
-      // 네트워크 탭에서 /me/notifications 확인해봐
       console.log('notifications fetch failed', e)
     }
   }
 
   useEffect(() => {
-    // 로그인 전엔 폴링 X
+    // 로그인 안 한 경우: 정리
     if (!isLoggedIn) {
       setList([])
-      if (timerRef.current) window.clearInterval(timerRef.current)
-      timerRef.current = null
+      if (pollTimerRef.current) window.clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+      if (closeStreamRef.current) closeStreamRef.current()
+      closeStreamRef.current = null
       return
     }
-    // 즉시 1회 + 주기 폴링
+
+    // 1) 최초 1회 로드
     fetchOnce()
-    timerRef.current = window.setInterval(fetchOnce, 5000)
+
+    // 2) SSE 스트림 열기 (실시간)
+    closeStreamRef.current = notificationsAPI.openStream((n) => {
+      setList(prev => dedupeAndSort([n, ...prev]))
+    })
+
+    // 3) 안전망으로 30초 간격 폴링(원하면 0으로 없애도 됨)
+    pollTimerRef.current = window.setInterval(fetchOnce, 30000)
+
+    // 정리
     return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current)
+      if (pollTimerRef.current) window.clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+      if (closeStreamRef.current) closeStreamRef.current()
+      closeStreamRef.current = null
     }
   }, [isLoggedIn])
 
   const unread = list.filter(n => !n.is_read).length
 
   const handleItemClick = async (n: NotificationRow) => {
-    // 이미 읽은 항목이면 무시
     if (n.is_read) return
-    // 낙관적 업데이트: UI 먼저 반영
     setList(prev => prev.map(it => it.notification_id === n.notification_id ? { ...it, is_read: 1 } : it))
     try {
       await notificationsAPI.markRead(n.notification_id)
     } catch (e) {
-      // 실패 시 되돌리기 (조용히)
       setList(prev => prev.map(it => it.notification_id === n.notification_id ? { ...it, is_read: 0 } : it))
     }
   }

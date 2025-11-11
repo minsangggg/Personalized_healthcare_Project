@@ -21,7 +21,6 @@ class RecommendationLLM:
         profile: Dict[str, Any],
         fridge_df: pd.DataFrame,
         candidates: List[Dict[str, Any]],
-        recent_emphasis: List[str],
     ) -> List[Dict[str, Any]]:
         name = profile.get("name") or "사용자"
         level = profile.get("cooking_level") or "-"
@@ -62,7 +61,6 @@ class RecommendationLLM:
         user_msg = f"""
 [요약]
 - {name}님의 냉장고 재료: {fridge_list}
-- 최근 저장 재료: {recent_emphasis}
 - 사용자 요리 레벨: {level}
 
 [목표]

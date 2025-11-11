@@ -17,7 +17,6 @@ from .utils import (
     enforce_ingredients_with_fridge,
     fridge_token_set,
     pick_keywords_from_fridge_all,
-    recent_items_from_fridge,
 )
 
 
@@ -36,7 +35,6 @@ class RecommendationWorkflow:
         fridge = repository.get_user_fridge_items(uid)
 
         keywords = pick_keywords_from_fridge_all(fridge, max_n=30)
-        recent = recent_items_from_fridge(fridge, days=10, top=8)
 
         recent_exclude = repository.recent_recommend_recipe_ids(uid)
 
@@ -110,7 +108,7 @@ class RecommendationWorkflow:
             adapted_rows: List[Dict[str, Any]] = []
         else:
             repository.ensure_recommend_recipe_table()
-            adapted_rows = self._llm.adapt_recipes_json(uid, profile, fridge, final_three, recent)
+            adapted_rows = self._llm.adapt_recipes_json(uid, profile, fridge, final_three)
             id_to_candidate = {candidate.get("recipe_id"): candidate for candidate in final_three}
 
             enforced_rows: List[Dict[str, Any]] = []
@@ -152,7 +150,7 @@ class RecommendationWorkflow:
         return {
             "userId": uid,
             "fridgeSample": fridge_sample,
-            "recentEmphasis": recent,
+            "recentEmphasis": [],
             "llm_recommendation_text": llm_text_result,
             "recommended_db_candidates": final_three,
             "adapted_recipes_saved": [
