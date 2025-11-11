@@ -4,6 +4,8 @@ import { cooktestAPI, type CookPost, type EventDetail } from '../api/cooktest'
 import CreateCookTestPostModal from './CreateCookTestPostModal'
 import CookTestPostModal from './CookTestPostModal'
 import EditCookTestPostModal from './EditCookTestPostModal'
+import UserCookPostsModal from './UserCookPostsModal'
+import { formatCookUserDisplay, formatCookUserHandle } from '../utils/cooktest'
 
 type FilterView = 'all' | 'liked' | 'mine'
 
@@ -35,6 +37,7 @@ export default function CookTestDetailModal({
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [filterView, setFilterView] = useState<FilterView>('all')
   const [showPosts, setShowPosts] = useState(true)
+  const [userPostsModal, setUserPostsModal] = useState<{ userId: number | string; userName?: string } | null>(null)
   const isEventClosed = useMemo(() => {
     if (!event) return false
     const end = new Date(event.end_date)
@@ -295,9 +298,11 @@ export default function CookTestDetailModal({
 
         <div className="cooktest-actions">
           <div className="cooktest-actions-right">
-            <button className="btn ghost toggle-btn" onClick={() => setShowPosts(p => !p)}>
-              {showPosts ? '게시글 숨기기' : '게시글 보기'}
-            </button>
+            {isEventClosed && (
+              <button className="btn ghost toggle-btn" onClick={() => setShowPosts(p => !p)}>
+                {showPosts ? '게시글 숨기기' : '게시글 보기'}
+              </button>
+            )}
             {!isEventClosed ? (
               <button className="btn" onClick={ensureLoginAndOpenCreate}>
                 참가하기
@@ -345,7 +350,18 @@ export default function CookTestDetailModal({
                     {p.content_title}
                   </div>
                   <div className="feed-meta">
-                    {p.user_name ?? `사용자 #${p.user_id}`} · {fmt(p.created_at)}
+                    {formatCookUserDisplay(p.user_id, p.user_name) !== '사용자' && (
+                      <span className="user-name">{formatCookUserDisplay(p.user_id, p.user_name)}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="user-link"
+                      onClick={() => setUserPostsModal({ userId: p.user_id, userName: p.user_name })}
+                    >
+                      {formatCookUserHandle(p.user_id)}
+                    </button>
+                    <span aria-hidden>·</span>
+                    <span>{fmt(p.created_at)}</span>
                   </div>
                 </div>
                 <div className="feed-body">{p.content_text}</div>
@@ -413,6 +429,16 @@ export default function CookTestDetailModal({
             await refreshAfterChange()
             await refreshSinglePost(editedId)
           }}
+        />
+      )}
+      {userPostsModal && (
+        <UserCookPostsModal
+          userId={userPostsModal.userId}
+          userName={userPostsModal.userName}
+          currentUserId={userId}
+          isLoggedIn={isLoggedIn}
+          onRequireLogin={onRequireLogin}
+          onClose={() => setUserPostsModal(null)}
         />
       )}
     </ModalFrame>

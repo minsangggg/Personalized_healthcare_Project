@@ -1,6 +1,7 @@
 ﻿from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pymysql.err import ProgrammingError
 
 from core import get_conn, get_current_user
 from core.security import bearer, token_service
@@ -8,6 +9,7 @@ import os
 import uuid
 from datetime import datetime
 import json
+import re
 try:
     import boto3
     from botocore.config import Config as BotoConfig
@@ -15,8 +17,44 @@ except Exception:
     boto3 = None
     BotoConfig = None
 
-
 router = APIRouter()
+
+def _parse_imgs(raw: Any) -> List[str]:
+    imgs: List[str] = []
+    if isinstance(raw, str) and raw.strip().startswith("["):
+        try:
+            imgs = json.loads(raw)
+        except Exception:
+            imgs = []
+    elif isinstance(raw, list):
+        imgs = [str(x) for x in raw]
+    elif isinstance(raw, str) and raw:
+        imgs = [raw]
+    return imgs
+
+
+def _user_id_variants(raw: str) -> List[str]:
+    base = (raw or "").strip()
+    if not base:
+        return []
+    variants = {base}
+    prefix_pattern = re.compile(r"^(?:사용자|user)\s*#", re.IGNORECASE)
+    stripped = prefix_pattern.sub("", base).strip()
+    if stripped:
+        variants.add(stripped)
+        variants.add(f"사용자#{stripped}")
+        variants.add(f"user#{stripped}")
+        try:
+            num = int(stripped)
+            variants.add(str(num))
+        except ValueError:
+            pass
+    try:
+        num_base = int(base)
+        variants.add(str(num_base))
+    except ValueError:
+        pass
+    return [v for v in variants if v]
 
 
 # -------- Events --------
@@ -346,6 +384,131 @@ def get_my_likes(event_id: int, current_user: str = Depends(get_current_user)) -
         )
         rows = cur.fetchall()
     return {"liked_post_ids": [row["post_id"] for row in rows]}
+
+
+@router.get("/users/{user_id}/cooktest-posts")
+def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
+    """Return all cooktest posts and events for a specific user."""
+    variants = _user_id_variants(user_id)
+    if not variants:
+        variants = [user_id]
+    placeholders = ", ".join(["%s"] * len(variants))
+    viewer = _get_optional_user(request)
+    like_join = ""
+    like_select = "0 AS liked_by_me"
+    params: List[Any] = list(variants)
+    if viewer:
+        like_join = " LEFT JOIN board_likes bl ON bl.content_id = b.content_id AND bl.user_id=%s"
+        like_select = "CASE WHEN bl.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_me"
+        params.append(viewer)
+
+    with get_conn() as conn, conn.cursor() as cur:
+        # Posts authored by the user
+        sql_posts = f"""
+            SELECT
+              b.content_id AS post_id,
+              b.event_id,
+              b.user_id,
+              COALESCE(up.user_name, '') AS user_name,
+              b.content_title,
+              b.content_text,
+              b.img_url,
+              b.like_count AS likes,
+              b.created_at,
+              e.event_name,
+              {like_select}
+            FROM board b
+            JOIN event e ON e.event_id = b.event_id
+            LEFT JOIN user_profile up ON up.user_id = b.user_id
+            {like_join}
+            WHERE b.user_id IN ({placeholders})
+            ORDER BY b.like_count DESC, b.created_at DESC
+        """
+        sql_posts_no_profile = f"""
+            SELECT
+              b.content_id AS post_id,
+              b.event_id,
+              b.user_id,
+              '' AS user_name,
+              b.content_title,
+              b.content_text,
+              b.img_url,
+              b.like_count AS likes,
+              b.created_at,
+              e.event_name,
+              {like_select}
+            FROM board b
+            JOIN event e ON e.event_id = b.event_id
+            {like_join}
+            WHERE b.user_id IN ({placeholders})
+            ORDER BY b.like_count DESC, b.created_at DESC
+        """
+        try:
+            cur.execute(sql_posts, tuple(params))
+        except ProgrammingError as exc:
+            if exc.args and exc.args[0] == 1146:
+                cur.execute(sql_posts_no_profile, tuple(params))
+            else:
+                raise
+        raw_posts = cur.fetchall()
+
+        posts: List[Dict[str, Any]] = []
+        for row in raw_posts:
+            imgs = _parse_imgs(row.get("img_url"))
+            posts.append(
+                {
+                    **row,
+                    "img_urls": imgs,
+                    "img_url": imgs[0] if imgs else row.get("img_url"),
+                }
+            )
+
+        # Distinct events the user has participated in
+        cur.execute(
+            f"""
+            SELECT DISTINCT
+              e.event_id,
+              e.event_name,
+              e.start_date,
+              e.end_date
+            FROM event e
+            JOIN board b ON b.event_id = e.event_id
+            WHERE b.user_id IN ({placeholders})
+            ORDER BY e.start_date DESC
+            """,
+            tuple(variants),
+        )
+        events = cur.fetchall()
+
+    return {"posts": posts, "events": events}
+
+
+@router.get("/posts/{post_id}")
+def get_post_global(post_id: int):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              content_id AS post_id,
+              event_id,
+              user_id,
+              content_title,
+              content_text,
+              img_url,
+              like_count AS likes,
+              created_at
+            FROM board
+            WHERE content_id=%s
+            """,
+            (post_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Post not found")
+        imgs = _parse_imgs(row.get("img_url"))
+        row["img_urls"] = imgs
+        row["img_url"] = imgs[0] if imgs else row.get("img_url")
+    return row
 
 
 @router.post("/posts/{post_id}/like", dependencies=[Depends(get_current_user)])

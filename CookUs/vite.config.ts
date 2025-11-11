@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
         // CookTest (events & posts)
         '/events': { target, changeOrigin: true },
         '/posts': { target, changeOrigin: true },
+        '/users': { target, changeOrigin: true },
       },
     },
   }

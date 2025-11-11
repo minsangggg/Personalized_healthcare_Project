@@ -30,8 +30,6 @@ type Props = {
   userName?: string
 }
 
-
-
 export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Props) {
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
@@ -119,7 +117,7 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
     const missingList = formatSlotList(dailySummary.missingSlots)
     return {
       tone: 'encourage' as const,
-      text: `${missingList || '건강 루틴'} 꾸준히 챙겨볼까요?`,
+      text: `${missingList || '건강 루틴!'} 영양제를 꾸준히 챙겨볼까요?`,
     }
   }, [daily, dailySummary, nickLabel, selectedDay])
 

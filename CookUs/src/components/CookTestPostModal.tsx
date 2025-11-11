@@ -10,9 +10,19 @@ type Props = {
   currentUserId?: string
   onRequestEdit?: (post: CookPost) => void
   onDeleted?: () => void
+  allowOwnerActions?: boolean
 }
 
-export default function CookTestPostModal({ eventId, postId, onClose, initial, currentUserId, onRequestEdit, onDeleted }: Props) {
+export default function CookTestPostModal({
+  eventId,
+  postId,
+  onClose,
+  initial,
+  currentUserId,
+  onRequestEdit,
+  onDeleted,
+  allowOwnerActions = true,
+}: Props) {
   const [post, setPost] = useState<CookPost | null>(initial ?? null)
   const [loading, setLoading] = useState(!initial)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +44,7 @@ export default function CookTestPostModal({ eventId, postId, onClose, initial, c
     })()
   }, [eventId, postId, initial])
 
-  const isOwner = post && currentUserId && String(post.user_id) === String(currentUserId)
+  const isOwner = allowOwnerActions && post && currentUserId && String(post.user_id) === String(currentUserId)
 
   const handleDelete = async () => {
     if (!post || deleting) return
@@ -74,9 +84,11 @@ export default function CookTestPostModal({ eventId, postId, onClose, initial, c
               <div className="feed-title">{post.content_title}</div>
               <div className="feed-meta">사용자 #{post.user_id} · {fmt(post.created_at)}</div>
             </div>
-            {(post.img_urls && post.img_urls.length > 0 ? post.img_urls : (post.img_url ? [post.img_url] : [])).map((u, idx) => (
-              <img key={idx} src={u} alt={`post-${idx}`} className="feed-image" />
-            ))}
+            {(post.img_urls && post.img_urls.length > 0 ? post.img_urls : (post.img_url ? [post.img_url] : []))
+              .filter(Boolean)
+              .map((u, idx) => (
+                <img key={idx} src={u as string} alt="" className="feed-image" />
+              ))}
             <div className="feed-body" style={{ whiteSpace:'pre-wrap' }}>{post.content_text}</div>
           </article>
         )}

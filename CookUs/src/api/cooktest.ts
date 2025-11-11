@@ -1,4 +1,5 @@
 import api from './axios'
+import { extractCookUserId } from '../utils/cooktest'
 
 export type EventSummary = {
   event_id: number
@@ -7,6 +8,7 @@ export type EventSummary = {
   start_date: string
   end_date: string
   post_count: number
+  participated?: boolean
 }
 
 export type EventDetail = {
@@ -28,6 +30,23 @@ export type CookPost = {
   img_urls?: string[]
   likes: number
   created_at: string
+}
+
+export type UserCookPost = CookPost & {
+  event_name?: string
+  liked_by_me?: boolean
+}
+
+export type UserCookEvent = {
+  event_id: number
+  event_name: string
+  start_date?: string
+  end_date?: string
+}
+
+export type UserCookPostsResponse = {
+  posts: UserCookPost[]
+  events: UserCookEvent[]
 }
 
 export type CreatePostDto = {
@@ -58,6 +77,11 @@ export const cooktestAPI = {
 
   async getPost(eventId: number, postId: number): Promise<CookPost> {
     const { data } = await api.get(`/events/${eventId}/posts/${postId}`)
+    return data
+  },
+
+  async getPostGlobal(postId: number): Promise<CookPost> {
+    const { data } = await api.get(`/posts/${postId}`)
     return data
   },
 
@@ -93,5 +117,13 @@ export const cooktestAPI = {
   async presignUploads(eventId: number, fileExts: string[]): Promise<{ upload_list: Array<{ upload_url: string; file_url: string; file_name: string }>; expires_in: number }>{
     const { data } = await api.post(`/events/${eventId}/presigned-urls`, { file_exts: fileExts })
     return data
+  },
+
+  async listUserPosts(userId: number | string): Promise<UserCookPostsResponse> {
+    const cleanId = extractCookUserId(userId) || String(userId ?? '').trim()
+    const { data } = await api.get(`/users/${cleanId}/cooktest-posts`)
+    const posts = Array.isArray((data as any)?.posts) ? (data as any).posts : Array.isArray(data) ? data : []
+    const events = Array.isArray((data as any)?.events) ? (data as any).events : []
+    return { posts, events }
   },
 }

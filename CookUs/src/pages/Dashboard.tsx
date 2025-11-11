@@ -219,6 +219,8 @@ function DashboardInner({ userName, onRequireLogin }: { userName?: string; onReq
     noData: { text: '데이터 없음' },
   }
 
+  const weeklyRatePct = clampPercent(progress?.weeklyRate)
+
   return (
     <section className="app-tab dashboard">
       <div className="db-header">
@@ -276,7 +278,7 @@ function DashboardInner({ userName, onRequireLogin }: { userName?: string; onReq
             <div className="sec-title" style={{ margin: 0 }}>현재 주 <span style={{ opacity: .7, fontWeight: 500 }}>({currentWeekText})</span></div>
           </div>
           <div className="weekly-grid kpi-grid">
-            <div className="kpi-card"><div className="kpi-label">주간 목표달성</div><div className="kpi-big">{progress && progress.weeklyRate != null ? `${Math.round(progress.weeklyRate)}%` : '-'}</div></div>
+            <div className="kpi-card"><div className="kpi-label">주간 목표달성</div><div className="kpi-big">{weeklyRatePct != null ? `${weeklyRatePct}%` : '-'}</div></div>
             <div className="kpi-card"><div className="kpi-label">조리 수</div><div className="kpi-big">{progress && progress.cookedCount != null ? progress.cookedCount : '-'}</div></div>
             <div className="kpi-card"><div className="kpi-label">평균 난이도</div><div className="kpi-big">{diffText(progress?.avgDifficulty)}</div></div>
             <div className="kpi-card"><div className="kpi-label">평균 시간</div><div className="kpi-big">{progress && progress.avgMinutes != null ? `${progress.avgMinutes}` : '-'}분</div></div>
@@ -342,6 +344,13 @@ function monthToParam(mm: string | undefined) {
   if (!mm) return undefined
   if (/^\d{4}-\d{2}$/.test(mm)) return `${mm}-01`
   return undefined
+}
+
+function clampPercent(value: number | string | null | undefined) {
+  if (value == null) return null
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  return Math.max(0, Math.min(100, Math.round(num)))
 }
 
 function RunnerGauge({ value }: { value: number }) {
