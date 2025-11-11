@@ -361,7 +361,8 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
             """,
             (post_id, uid),
         )
-        if cur.rowcount == 1:
+        new_like = (cur.rowcount == 1)
+        if new_like:
             cur.execute(
                 "UPDATE board SET like_count = like_count + 1 WHERE content_id=%s",
                 (post_id,),
@@ -371,13 +372,15 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
         owner_id, like_count = row["user_id"], row["likes"]
-    # Notify exactly at 50 likes
-    if int(like_count) == 50:
+    # Notify on every new like (except self-like)
+    if new_like and str(uid) != str(owner_id):
         notify(
             user_id=str(owner_id),
-            title="🎉 축하합니다!",
-            body="당신의 게시물이 좋아요 50개를 달성했어요!",
+            title="새 좋아요",
+            body=f"{uid}님이 게시글에 좋아요를 눌렀어요.",
             link_url=f"/boards/{post_id}",
+            type="like",
+            related_id=post_id,
         )
     return {"likes": like_count, "liked": True}
 

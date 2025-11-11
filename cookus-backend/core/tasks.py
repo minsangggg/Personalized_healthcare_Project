@@ -6,9 +6,14 @@ from notifications.service import notify
 from notifications.repository import exists_today_supplement_notice
 
 SLOTS = {
+    # Morning
     "아침_공복": (time(6, 0),  time(9, 59)),
     "아침_식후": (time(7, 0),  time(10, 59)),
+    # Lunch
+    "점심_공복": (time(11, 0), time(12, 29)),
     "점심_식후": (time(12, 0), time(13, 59)),
+    # Dinner
+    "저녁_공복": (time(17, 0), time(18, 29)),
     "저녁_식후": (time(18, 0), time(20, 59)),
 }
 

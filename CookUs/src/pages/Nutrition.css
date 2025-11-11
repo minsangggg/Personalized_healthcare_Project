@@ -191,10 +191,7 @@
 
 /* Daily check cards */
 .nutrition .check-list{ display:grid; gap:8px }
-<<<<<<< HEAD
 .nutrition .check-list-wrap{ max-height: 280px; overflow:auto; -webkit-overflow-scrolling:touch; padding-right:4px }
-=======
->>>>>>> origin/gayeon
 .nutrition .check-item{
   display:grid; grid-template-columns: 1fr auto auto; align-items:center; gap:8px;
   border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px;
@@ -214,12 +211,8 @@
 .nutrition .chkbox:disabled{ opacity:.5; cursor:not-allowed }
 
 /* Make only the checklist area scroll inside the card */
-<<<<<<< HEAD
 .nutrition .daily-card{ display:flex; flex-direction:column; max-height: 440px }
-.nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow:auto; -webkit-overflow-scrolling:touch }
-=======
 .nutrition .daily-card .check-list-wrap{ flex:1 1 auto; min-height:0; max-height: unset; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-right:4px }
->>>>>>> origin/gayeon
 .nutrition .intake-list{ display:flex; flex-direction:column; gap:10px }
 .nutrition .intake-item .line1{ display:flex; align-items:center; justify-content:space-between }
 .nutrition .intake-item .name{ font-weight:700 }
@@ -230,8 +223,5 @@
 .nutrition .rname{ font-weight:700 }
 .nutrition .rreason{ color:#555 }
 
-<<<<<<< HEAD
 /* Nutrition calendar reuses global .calendar styles; custom dot color applied inline */
-=======
 /* Nutrition calendar reuses global .calendar styles; custom dot color applied inline */
->>>>>>> origin/gayeon

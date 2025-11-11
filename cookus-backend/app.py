@@ -17,6 +17,7 @@ from stats import router as stats_router
 from shorts import router as shorts_router
 from badges.router import router as badges_router
 from cooktest import router as cooktest_router
+from notifications.router import router as notifications_router
 
 
 def create_app() -> FastAPI:
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(shorts_router)
     app.include_router(badges_router)
     app.include_router(cooktest_router)
+    app.include_router(notifications_router)
 
     return app
 
