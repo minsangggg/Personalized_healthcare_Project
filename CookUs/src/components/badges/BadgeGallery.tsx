@@ -1,133 +1,159 @@
 import { useMemo, useState } from 'react'
-import { BadgeIcon, LABELS_KO } from './BadgeSet'
+import { BadgeIcon } from './BadgeSet'
 import BadgeDetailModal from './BadgeDetailModal'
-import type { BadgeCatalogItem } from '../../data/badges'
-import type { BadgeOverview, LockedBadge } from '../../api/badges'
+import type { BadgeOverview } from '../../api/badges'
+import { badgeCategoryLabels, badgeMetaById, badgeDisplayOrder, type BadgeCategoryKey } from '../../data/badges'
 
 type Props = {
-  catalog: BadgeCatalogItem[]
   overview?: BadgeOverview | null
 }
 
-export default function BadgeGallery({ catalog, overview }: Props) {
-  const [active, setActive] = useState<{ code: string; awardedAt?: string | null; description?: string; title?: string } | null>(null)
+type EnrichedBadge = {
+  id: number
+  name: string
+  categoryKey: BadgeCategoryKey
+  categoryLabel: string
+  iconCode?: string
+  description?: string
+  earnedAt?: string | null
+  progress?: { current: number; target: number; remaining: number }
+  target?: number
+}
 
-  const codeByName = useMemo(() => {
-    const map = new Map<string, BadgeCatalogItem>()
-    catalog.forEach(item => map.set(item.name_ko.trim(), item))
+const categoryOrder: BadgeCategoryKey[] = ['contest', 'ranks', 'likes', 'recipe', 'cooked', 'fridge', 'goal', 'others']
+
+export default function BadgeGallery({ overview }: Props) {
+  const [active, setActive] = useState<{ code?: string; title: string; description?: string; awardedAt?: string | null; categoryLabel?: string } | null>(null)
+
+  const earnedMap = useMemo(() => {
+    const map = new Map<number, BadgeOverview['earned'][number]>()
+    overview?.earned?.forEach(item => map.set(item.badge_id, item))
     return map
-  }, [catalog])
+  }, [overview])
 
-  const resolveCatalog = (name: string) => {
-    const direct = codeByName.get(name?.trim() ?? '')
-    if (direct) return direct
-    const normName = normalize(name)
-    return catalog.find(item => normalize(item.name_ko) === normName)
+  const lockedMap = useMemo(() => {
+    const map = new Map<number, BadgeOverview['locked'][number]>()
+    overview?.locked?.forEach(item => map.set(item.badge_id, item))
+    return map
+  }, [overview])
+
+  const allIds = useMemo(() => {
+    const ids = new Set<number>()
+    badgeDisplayOrder.forEach(id => ids.add(id))
+    earnedMap.forEach((_, id) => ids.add(id))
+    lockedMap.forEach((_, id) => ids.add(id))
+    return Array.from(ids)
+  }, [earnedMap, lockedMap])
+
+  const idOrderIndex = (id: number) => {
+    const idx = badgeDisplayOrder.indexOf(id)
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx
   }
 
-  const ownedSet = useMemo(() => {
-    const set = new Set<string>()
-    overview?.earned?.forEach(badge => {
-      const catalogItem = resolveCatalog(badge.name)
-      const code = catalogItem?.code ?? slugify(badge.name)
-      set.add(code)
-    })
-    return set
-  }, [overview, catalog])
+  const grouped = useMemo(() => {
+    const map = new Map<BadgeCategoryKey, EnrichedBadge[]>()
 
-  const ownedMap = useMemo(() => {
-    const map = new Map<string, string>()
-    overview?.earned?.forEach(badge => {
-      const catalogItem = resolveCatalog(badge.name)
-      const code = catalogItem?.code ?? slugify(badge.name)
-      map.set(code, badge.earned_at)
-    })
-    return map
-  }, [overview, catalog])
+    allIds.forEach(id => {
+      const meta = badgeMetaById[id]
+      const earned = earnedMap.get(id)
+      const locked = lockedMap.get(id)
+      const categoryKey = meta?.category ?? (earned?.category as BadgeCategoryKey) ?? (locked?.category as BadgeCategoryKey) ?? 'others'
+      const categoryLabel = badgeCategoryLabels[categoryKey] ?? badgeCategoryLabels.others
+      const name = earned?.name ?? locked?.name ?? meta?.description ?? `배지 #${id}`
 
-  const progressMap = useMemo(() => {
-    const map = new Map<string, LockedBadge['progress']>()
-    overview?.locked?.forEach(lock => {
-      if (!lock.progress) return
-      const catalogItem = resolveCatalog(lock.name)
-      const code = catalogItem?.code ?? slugify(lock.name)
-      map.set(code, lock.progress)
-    })
-    return map
-  }, [overview, catalog])
+      const entry: EnrichedBadge = {
+        id,
+        name,
+        categoryKey,
+        categoryLabel,
+        iconCode: meta?.iconCode,
+        description: meta?.description,
+        earnedAt: earned?.earned_at ?? null,
+        progress: locked?.progress ? { ...locked.progress } : undefined,
+        target: meta?.target ?? locked?.progress?.target,
+      }
 
-  const byCategory = useMemo(() => {
-    const map: Record<string, BadgeCatalogItem[]> = {}
-    catalog.forEach(item => {
-      ;(map[item.category] ??= []).push(item)
+      if (!map.has(categoryKey)) {
+        map.set(categoryKey, [])
+      }
+      map.get(categoryKey)!.push(entry)
     })
+
+    map.forEach(list => list.sort((a, b) => idOrderIndex(a.id) - idOrderIndex(b.id)))
+
     return map
-  }, [catalog])
+  }, [allIds, earnedMap, lockedMap])
+
+  const sections = categoryOrder.filter(key => (grouped.get(key)?.length ?? 0) > 0)
+
+  if (sections.length === 0) {
+    return <div className="note">아직 획득하거나 진행 중인 배지가 없어요.</div>
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {Object.entries(byCategory).map(([cat, items]) => (
-        <section key={cat}>
-          <h4 style={{ margin: '6px 0 10px', color: '#7a513a' }}>{cat}</h4>
-          <div className="badge-grid">
-            {items.map(item => {
-              const earned = ownedSet.has(item.code)
-              const p = progressMap.get(item.code)
-              const remaining =
-                p && p.target > 0
-                  ? Math.max(0, p.remaining ?? p.target - p.current)
-                  : item.target_value
-                    ? Math.max(0, item.target_value - (p?.current ?? 0))
-                    : undefined
-              const title = earned
-                ? (LABELS_KO as any)[item.code]?.label || item.name_ko
-                : remaining != null && item.target_value
-                  ? `${item.name_ko} · 남은 목표 ${item.target_value - (p?.current ?? 0)}/${item.target_value}`
-                  : item.name_ko
+      {sections.map(categoryKey => {
+        const items = grouped.get(categoryKey) ?? []
+        return (
+          <section key={categoryKey}>
+            <h4 style={{ margin: '6px 0 10px', color: '#7a513a' }}>{badgeCategoryLabels[categoryKey]}</h4>
+            <div className="badge-grid">
+              {items.map(item => {
+                const owned = Boolean(item.earnedAt)
+                const remaining = !owned
+                  ? item.progress?.remaining ??
+                    (item.progress && item.progress.target != null
+                      ? Math.max(item.progress.target - item.progress.current, 0)
+                      : item.target ?? undefined)
+                  : undefined
+                const buttonTitle = owned
+                  ? `${item.name} · 획득일 ${new Date(item.earnedAt!).toLocaleDateString()}`
+                  : remaining != null
+                    ? `${item.name} · 남은 목표 ${remaining}`
+                    : item.description ?? item.name
 
-              return (
-                <button
-                  key={item.code}
-                  className={['badge-tile-btn', earned ? 'earned' : 'locked'].join(' ')}
-                  title={title}
-                  onClick={() =>
-                    setActive({
-                      code: item.code,
-                      awardedAt: ownedMap.get(item.code),
-                      description: item.description,
-                      title: item.name_ko,
-                    })
-                  }
-                >
-                  <div className={earned ? 'shine-wrap flip-y' : ''}>
-                    <BadgeIcon code={item.code} earned={earned} size={52} />
-                  </div>
-                  <div className="badge-name" style={{ marginTop: 4 }}>{item.name_ko}</div>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      ))}
+                return (
+                  <button
+                    key={item.id}
+                    className={['badge-tile-btn', owned ? 'earned' : 'locked'].join(' ')}
+                    title={buttonTitle}
+                    onClick={() =>
+                      setActive({
+                        code: item.iconCode,
+                        title: item.name,
+                        description: item.description,
+                        awardedAt: item.earnedAt,
+                        categoryLabel: item.categoryLabel,
+                      })
+                    }
+                  >
+                    <div className={owned ? 'shine-wrap flip-y' : ''}>
+                      <BadgeIcon code={item.iconCode ?? ''} earned={owned} size={52} />
+                    </div>
+                    <div className="badge-name" style={{ marginTop: 4 }}>
+                      {item.name}
+                    </div>
+                    {!owned && remaining != null && (
+                      <div style={{ marginTop: 2, fontSize: 12, color: '#7b5a40' }}>남은 목표 {remaining}</div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )
+      })}
 
       {active && (
         <BadgeDetailModal
           code={active.code}
+          title={active.title}
           awardedAt={active.awardedAt}
           description={active.description}
-          title={active.title}
+          categoryLabel={active.categoryLabel}
           onClose={() => setActive(null)}
         />
       )}
     </div>
   )
 }
-
-function normalize(name?: string) {
-  return (name ?? '').replace(/\s+/g, '').toLowerCase()
-}
-
-function slugify(name?: string) {
-  return (name ?? '').trim().toLowerCase().replace(/\s+/g, '_')
-}
-

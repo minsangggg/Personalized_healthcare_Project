@@ -34,6 +34,8 @@ def check_new_boards():
         (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
+      if rows:
+        log.info("check_new_boards: detected %d new posts", len(rows))
       for row in rows:
         handle_user_event(row["user_id"], "contest", conn)
   _run_job("check_new_boards", worker)
@@ -51,6 +53,8 @@ def check_recipe_recommendations():
         (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
+      if rows:
+        log.info("check_recipe_recommendations: detected %d recommendations", len(rows))
       for row in rows:
         handle_user_event(row["user_id"], "recipe", conn)
   _run_job("check_recipe_recommendations", worker)
@@ -69,6 +73,8 @@ def check_cooked_recipes():
         (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
+      if rows:
+        log.info("check_cooked_recipes: detected %d cooked events", len(rows))
       for row in rows:
         handle_user_event(row["user_id"], "cooked", conn)
   _run_job("check_cooked_recipes", worker)
@@ -86,6 +92,8 @@ def check_new_fridge_items():
         (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
+      if rows:
+        log.info("check_new_fridge_items: detected %d new fridge items", len(rows))
       for row in rows:
         handle_user_event(row["user_id"], "fridge", conn)
   _run_job("check_new_fridge_items", worker)
@@ -151,6 +159,7 @@ def check_popular_boards():
       liked_rows = cur.fetchall()
       if not liked_rows:
         return
+      log.info("check_popular_boards: evaluating %d liked posts", len(liked_rows))
 
       for row in liked_rows:
         content_id = row["content_id"]
@@ -190,6 +199,7 @@ def aggregate_event_results():
       events = cur.fetchall()
       if not events:
         return
+      log.info("aggregate_event_results: %d finished events to aggregate", len(events))
 
       cur.execute(
         """

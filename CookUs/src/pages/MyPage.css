@@ -77,11 +77,35 @@
 }
 
 /* --- Sub Tabs (inside MyPage) --- */
-.subtabs { display:flex; align-items:center; gap:0; margin: 8px 0 0px; border:1px solid #e9c86f; background:#fffdf2; border-radius:12px; overflow:hidden }
-.subtab { padding:6px 12px; cursor:pointer; font-weight:500; color:#7b4e2d; user-select:none; font-size: 15PX; }
-.subtab.active { background:#ffe4b8; color:#6b3f23 }
-.subtab + .subtab { position:relative }
-.subtab + .subtab::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:1px; height:22px; background:#e9c86f }
+.subtabs {
+  display:flex;
+  align-items:center;
+  gap:0;
+  margin: 8px 0 0px;
+  border:1px solid #e9c86f;
+  background:#fffdf2;
+  border-radius:12px;
+  overflow:hidden
+}
+.subtab-btn {
+  flex:1;
+  padding:8px 12px;
+  cursor:pointer;
+  font-weight:600;
+  color:#7b4e2d;
+  user-select:none;
+  font-size:15px;
+  border:none;
+  background:transparent;
+  transition:background .2s ease, color .2s ease;
+}
+.subtab-btn + .subtab-btn {
+  border-left:1px solid #e9c86f;
+}
+.subtab-btn.active {
+  background:#ffe4b8;
+  color:#6b3f23;
+}
 
 /* --- Badges view --- */
 .badge-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:8px; width:100%; }

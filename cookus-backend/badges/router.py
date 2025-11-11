@@ -76,4 +76,3 @@ def award_badge(
             related_id=badge_id,
         )
     return {"ok": True, "awarded": bool(awarded)}
-

@@ -1,25 +1,46 @@
-export type BadgeCategory = '대회' | '레시피 추천' | '목표'
+export type BadgeCategoryKey = 'contest' | 'ranks' | 'likes' | 'recipe' | 'cooked' | 'fridge' | 'goal' | 'others'
 
-export type BadgeCatalogItem = {
-  code: string
-  name_ko: string
-  category: BadgeCategory
-  description: string
-  target_value?: number
+export type BadgeMeta = {
+  id: number
+  iconCode?: string
+  category: BadgeCategoryKey
+  description?: string
+  target?: number
 }
 
-export const badgeCatalog: BadgeCatalogItem[] = [
-  { code: 'first_contest', name_ko: '첫 대회!', category: '대회', description: '첫 번째 대회에 참여했습니다.' },
-  { code: 'contest_rank_1', name_ko: '최고의 셰프', category: '대회', description: '대회에서 1위를 달성했습니다.' },
-  { code: 'contests_5', name_ko: '꾸준한 경쟁자', category: '대회', description: '대회에 5번 이상 참여했습니다.', target_value: 5 },
-  { code: 'contests_10', name_ko: '경험 많은 셰프', category: '대회', description: '대회에 10번 이상 참여했습니다.', target_value: 10 },
-  { code: 'likes_50_plus', name_ko: '좋아요 메이커', category: '대회', description: '게시글에 50개 이상의 좋아요를 받았습니다.', target_value: 50 },
-  { code: 'posts_10', name_ko: '게시글 장인', category: '대회', description: '게시글 10개를 작성했습니다.', target_value: 10 },
-  { code: 'rec_first', name_ko: '첫 추천', category: '레시피 추천', description: '첫 번째 레시피 추천을 받았습니다.' },
-  { code: 'rec_5_days_streak', name_ko: '5일 연속 추천', category: '레시피 추천', description: '5일 연속 추천을 받았습니다.', target_value: 5 },
-  { code: 'rec_cooked_1', name_ko: '첫 조리 성공', category: '레시피 추천', description: '추천 레시피로 첫 조리에 성공했습니다.' },
-  { code: 'ingredients_10_plus', name_ko: '재료 도감 수집가', category: '레시피 추천', description: '재료를 10개 이상 추가했습니다.', target_value: 10 },
-  { code: 'weekly_goal_1', name_ko: '첫 주간 목표 달성', category: '목표', description: '주간 목표를 처음 달성했습니다.', target_value: 1 },
-  { code: 'weekly_goal_5', name_ko: '꾸준한 달성가', category: '목표', description: '주간 목표를 5번 달성했습니다.', target_value: 5 },
-]
+export const badgeCategoryLabels: Record<BadgeCategoryKey, string> = {
+  contest: '대회',
+  ranks: '대회 순위',
+  likes: '좋아요',
+  recipe: '레시피 추천',
+  cooked: '조리',
+  fridge: '냉장고',
+  goal: '목표',
+  others: '기타',
+}
 
+export const badgeMetaById: Record<number, BadgeMeta> = {
+  1: { id: 1, iconCode: 'first_contest', category: 'contest', description: '대회 첫 참가', target: 1 },
+  2: { id: 2, iconCode: 'contest_rank_1', category: 'ranks', description: '대회 1등', target: 1 },
+  3: { id: 3, iconCode: 'contests_5', category: 'contest', description: '대회 5번 참가', target: 5 },
+  4: { id: 4, iconCode: 'contests_10', category: 'contest', description: '대회 10번 참가', target: 10 },
+  5: { id: 5, iconCode: 'contests_20', category: 'contest', description: '대회 20번 참가', target: 20 },
+  6: { id: 6, iconCode: 'contest_rank_top5', category: 'ranks', description: '대회 순위권 (1~5등)', target: 5 },
+  7: { id: 7, iconCode: 'likes_50_plus', category: 'likes', description: '게시글 좋아요 50개 이상', target: 50 },
+  8: { id: 8, iconCode: 'posts_10', category: 'contest', description: '게시글 10개 작성', target: 10 },
+  9: { id: 9, iconCode: 'posts_30', category: 'contest', description: '게시글 30개 작성', target: 30 },
+ 10: { id: 10, iconCode: 'posts_50', category: 'contest', description: '게시글 50개 작성', target: 50 },
+ 11: { id: 11, iconCode: 'influencer_cookfluencer', category: 'contest', description: '대회 5회 이상 참가 + 순위권 달성', target: 5 },
+ 12: { id: 12, iconCode: 'rec_first', category: 'recipe', description: '추천받기 기능 첫 사용', target: 1 },
+ 13: { id: 13, iconCode: 'rec_5_days_streak', category: 'recipe', description: '연속 5일 추천 받기', target: 5 },
+ 14: { id: 14, iconCode: 'rec_cooked_1', category: 'cooked', description: '조리 완료 1회', target: 1 },
+ 15: { id: 15, iconCode: 'rec_cooked_10', category: 'cooked', description: '조리 완료 10회', target: 10 },
+ 16: { id: 16, iconCode: 'rec_cooked_50', category: 'cooked', description: '조리 완료 50회', target: 50 },
+ 17: { id: 17, iconCode: 'ingredients_10_plus', category: 'fridge', description: '냉장고 재료 10개 이상 등록', target: 10 },
+ 18: { id: 18, iconCode: 'weekly_goal_1', category: 'goal', description: '주간 목표 첫 달성', target: 1 },
+ 19: { id: 19, iconCode: 'weekly_goal_5', category: 'goal', description: '주간 목표 5회 달성', target: 5 },
+}
+
+export const badgeDisplayOrder = Object.keys(badgeMetaById)
+  .map(id => Number(id))
+  .sort((a, b) => a - b)

@@ -3,7 +3,6 @@ import { authAPI } from '../api/auth'
 import type { User } from '../api/auth'
 import EditProfileDialog from '../components/EditProfileDialog'
 import BadgeGallery from '../components/badges/BadgeGallery'
-import { badgeCatalog } from '../data/badges'
 import { badgesAPI, type BadgeOverview } from '../api/badges'
 import './MyPage.css'
 
@@ -99,8 +98,20 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
   return (
     <section className="app-tab mypage">
       <div className="subtabs">
-        <div className={["subtab", activeTab==='profile'?'active':''].join(' ')} onClick={()=>setActiveTab('profile')}>프로필</div>
-        <div className={["subtab", activeTab==='badges'?'active':''].join(' ')} onClick={()=>setActiveTab('badges')}>뱃지 보기</div>
+        <button
+          type="button"
+          className={["subtab-btn", activeTab === 'profile' ? 'active' : ''].join(' ')}
+          onClick={() => setActiveTab('profile')}
+        >
+          프로필
+        </button>
+        <button
+          type="button"
+          className={["subtab-btn", activeTab === 'badges' ? 'active' : ''].join(' ')}
+          onClick={() => setActiveTab('badges')}
+        >
+          뱃지 보기
+        </button>
       </div>
 
       {activeTab === 'profile' && (
@@ -154,7 +165,7 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
           {!badgeLoading && !badgeError && !badgeOverview && (
             <div className="note">아직 획득한 배지가 없어요.</div>
           )}
-          {badgeOverview && <BadgeGallery catalog={badgeCatalog} overview={badgeOverview} />}
+          {badgeOverview && <BadgeGallery overview={badgeOverview} />}
         </div>
       )}
       {showEdit && me && (
