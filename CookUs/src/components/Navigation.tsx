@@ -1,5 +1,7 @@
 import './Navigation.css'
 import type { TabKey, User } from '../App'
+import { BadgeIcon } from './badges/BadgeSet'
+import { badgeMetaById } from '../data/badges'
 
 type Props = {
   current: TabKey
@@ -31,6 +33,10 @@ export default function Navigation({
       default: return key
     }
   }
+
+  const displayedBadgeId = user?.displayed_badge_id ?? null
+  const displayedBadgeMeta = displayedBadgeId ? badgeMetaById[displayedBadgeId] : undefined
+  const displayedBadgeCode = displayedBadgeMeta?.iconCode
 
   const renderTabContent = (key: TabKey) => {
     if (key === 'fridge') {
@@ -182,6 +188,11 @@ export default function Navigation({
         <div /> {/* left spacer */}
         <div className="brand-center only-text">
           <span className="brand-text">COOKUS</span>
+          {displayedBadgeCode && (
+            <span className="brand-badge" aria-hidden>
+              <BadgeIcon code={displayedBadgeCode} earned size={28} />
+            </span>
+          )}
         </div>
         <div className="user-area">
           {!isLoggedIn ? (

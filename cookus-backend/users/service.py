@@ -19,7 +19,14 @@ class UserService:
                     gender         AS gender,
                     date_of_birth  AS date_of_birth,
                     goal           AS goal,
-                    cooking_level  AS cooking_level
+                    cooking_level  AS cooking_level,
+                    (
+                        SELECT badge_id
+                        FROM user_badges
+                        WHERE user_id = user_info.id
+                          AND is_displayed = 1
+                        LIMIT 1
+                    ) AS displayed_badge_id
                 FROM user_info
                 WHERE id = %s
                 """,
@@ -52,7 +59,14 @@ class UserService:
                     gender,
                     date_of_birth,
                     goal,
-                    cooking_level
+                    cooking_level,
+                    (
+                        SELECT badge_id
+                        FROM user_badges
+                        WHERE user_id = user_info.id
+                          AND is_displayed = 1
+                        LIMIT 1
+                    ) AS displayed_badge_id
                 FROM user_info
                 WHERE id=%s
                 """,

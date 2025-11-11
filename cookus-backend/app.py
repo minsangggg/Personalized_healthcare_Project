@@ -17,11 +17,13 @@ from recipes import router as recipe_router
 from nutrition import router as nutrition_router
 from recommendations import router as recommendation_router
 from users import router as user_router
+from users.public_router import router as public_user_router
 from stats import router as stats_router
 from shorts import router as shorts_router
 from badges.router import router as badges_router
 from cooktest import router as cooktest_router
 from notifications.router import router as notifications_router
+from badge_title import router as badge_title_router
 
 
 @asynccontextmanager
@@ -57,8 +59,10 @@ def create_app() -> FastAPI:
     app.include_router(nutrition_router)
     app.include_router(shorts_router)
     app.include_router(badges_router)
+    app.include_router(badge_title_router)
     app.include_router(cooktest_router)
     app.include_router(notifications_router)
+    app.include_router(public_user_router)
 
     return app
 

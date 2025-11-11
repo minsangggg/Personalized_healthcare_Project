@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
 import Fridge from './pages/Fridge'
@@ -15,7 +15,7 @@ import CookTest from './pages/CookTest'
 import Nutrition from './pages/Nutrition'
 import Notifications from './components/Notifications'
 
-export type User = { user_id: string; user_name: string }
+export type User = { user_id: string; user_name: string; displayed_badge_id?: number | null }
 export type TabKey = 'fridge' | 'calendar' | 'dashboard' | 'cooktest' | 'nutrition' | 'mypage'
 
 export default function App() {
@@ -25,23 +25,40 @@ export default function App() {
   const [booting, setBooting] = useState(true)
   const [showSignup, setShowSignup] = useState(false)
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const profile = await authAPI.me()
+      setUser(profile)
+      return profile
+    } catch (err) {
+      setUser(null)
+      throw err
+    }
+  }, [])
+
   useEffect(() => {
     (async () => {
       const ok = await authAPI.init()
       if (ok) {
-        try { setUser(await authAPI.me()) }
-        catch { /* ignore */ }
+        try {
+          await refreshUser()
+        } catch {
+          /* ignore */
+        }
       }
       setBooting(false)
     })()
-  }, [])
+  }, [refreshUser])
 
   const isLoggedIn = !!user
   const requireLogin = () => setShowLogin(true)
 
-  const handleLoginSuccess = (u: User) => {
-    setUser(u)
-    setShowLogin(false)
+  const handleLoginSuccess = async (_u: User) => {
+    try {
+      await refreshUser()
+    } finally {
+      setShowLogin(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -80,7 +97,11 @@ export default function App() {
           )}
 
           {tab === 'cooktest' && (
-            <CookTest isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} userId={user?.user_id} />
+            <CookTest
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              userId={user?.user_id}
+            />
           )}
 
           {tab === 'dashboard' && (
@@ -92,7 +113,12 @@ export default function App() {
           )}
 
           {tab === 'mypage' && (
-            <MyPage isLoggedIn={isLoggedIn} onRequireLogin={requireLogin} />
+            <MyPage
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={requireLogin}
+              user={user}
+              refreshUser={refreshUser}
+            />
           )}
         </main>
       </div>

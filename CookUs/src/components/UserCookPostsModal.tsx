@@ -3,6 +3,9 @@ import ModalFrame from './ModalFrame'
 import { cooktestAPI, type UserCookEvent, type UserCookPost } from '../api/cooktest'
 import { formatCookUserDisplay, formatCookUserHandle } from '../utils/cooktest'
 import CookTestPostModal from './CookTestPostModal'
+import { usersAPI } from '../api/users'
+import { BadgeIcon } from './badges/BadgeSet'
+import { badgeMetaById } from '../data/badges'
 
 type Props = {
   userId: number | string
@@ -21,6 +24,7 @@ export default function UserCookPostsModal({ userId, userName, onClose, currentU
   const [activePost, setActivePost] = useState<UserCookPost | null>(null)
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set())
   const [pendingLikes, setPendingLikes] = useState<Set<number>>(new Set())
+  const [displayedBadgeId, setDisplayedBadgeId] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +48,24 @@ export default function UserCookPostsModal({ userId, userName, onClose, currentU
       }
     }
     fetchPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadBadge = async () => {
+      try {
+        const { badge_id } = await usersAPI.getDisplayedBadge(userId)
+        if (!cancelled) {
+          setDisplayedBadgeId(badge_id ?? null)
+        }
+      } catch {
+        if (!cancelled) setDisplayedBadgeId(null)
+      }
+    }
+    loadBadge()
     return () => {
       cancelled = true
     }
@@ -139,10 +161,15 @@ export default function UserCookPostsModal({ userId, userName, onClose, currentU
         <div className="user-post-panel__header">
           <div>
             <div className="user-post-panel__title">
-              {label !== '사용자' && <span>{label} </span>}
+              {displayedBadgeId && badgeMetaById[displayedBadgeId]?.iconCode && (
+                <span className="user-post-panel__badge" aria-hidden>
+                  <BadgeIcon code={badgeMetaById[displayedBadgeId].iconCode} earned size={20} />
+                </span>
+              )}
+              {label && <span>{label} </span>}
               <span className="user-handle">{handle}</span>
             </div>
-            <div className="user-post-panel__meta">작성한 게시글 {stats.postCount}개 · 참여한 대회 {stats.eventCount}개</div>
+            <div className="user-post-panel__meta">작성된 게시글 {stats.postCount}건 · 참여한 이벤트 {stats.eventCount}개</div>
           </div>
         </div>
         {loading && <div className="hint">불러오는 중…</div>}

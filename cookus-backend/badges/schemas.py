@@ -7,6 +7,7 @@ class EarnedBadge(BaseModel):
     category: str
     earned_at: str
     is_active: bool
+    is_displayed: bool
 
 class Progress(BaseModel):
     current: int

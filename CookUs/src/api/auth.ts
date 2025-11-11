@@ -1,4 +1,4 @@
-import api from './axios'
+﻿import api from './axios'
 import { setAccessToken, clearAccessToken } from './session'
 
 export type User = {
@@ -8,7 +8,8 @@ export type User = {
   gender?: 'male' | 'female' | string
   date_of_birth?: string | null
   goal?: number | null
-  cooking_level?: '상' | '하' | string
+  displayed_badge_id?: number | null
+  cooking_level?: '초보' | '중수' | string
 }
 
 export type UpdateMePayload = Partial<{
@@ -69,5 +70,6 @@ export const authAPI = {
     return data as { ok: boolean }
   },
 }
+
 
 

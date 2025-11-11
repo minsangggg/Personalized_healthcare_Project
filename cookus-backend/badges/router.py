@@ -19,6 +19,7 @@ def get_overview(user_id: str = Depends(get_current_user)):
             category=r["category"],
             earned_at=str(r["earned_at"]),
             is_active=bool(r["is_active"]),
+            is_displayed=bool(r.get("is_displayed")),
         )
         for r in earned_rows
     ]

@@ -7,7 +7,8 @@ SELECT b.badge_id,
        b.name_ko AS name,
        b.category,
        ub.awarded_at AS earned_at,
-       (ub.is_active = 1) AS is_active
+       (ub.is_active = 1) AS is_active,
+       (ub.is_displayed = 1) AS is_displayed
 FROM user_badges ub
 JOIN badge_info b ON b.badge_id = ub.badge_id
 WHERE ub.user_id = %s

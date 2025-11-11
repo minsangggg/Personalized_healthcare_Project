@@ -1,6 +1,6 @@
 import api from './axios'
 
-export type BadgeCategory = 'contest' | 'recipe' | 'goal'
+export type BadgeCategory = 'contest' | 'recipe' | 'goal' | 'likes' | 'cooked' | 'fridge' | 'ranks' | 'others'
 
 export type EarnedBadge = {
   badge_id: number
@@ -8,6 +8,7 @@ export type EarnedBadge = {
   category: BadgeCategory
   earned_at: string
   is_active: boolean
+  is_displayed: boolean
 }
 
 export type BadgeProgress = {
@@ -32,6 +33,13 @@ export const badgesAPI = {
   async overview(): Promise<BadgeOverview> {
     const { data } = await api.get('/me/badges/overview')
     return data
+  },
+  async setDisplayBadge(badge_id: number | null): Promise<void> {
+    if (badge_id == null) {
+      await api.delete('/me/badges/title')
+    } else {
+      await api.post('/me/badges/title', { badge_id })
+    }
   },
 }
 

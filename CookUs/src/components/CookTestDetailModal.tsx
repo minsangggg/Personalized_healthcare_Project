@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ModalFrame from './ModalFrame'
 import { cooktestAPI, type CookPost, type EventDetail } from '../api/cooktest'
 import CreateCookTestPostModal from './CreateCookTestPostModal'
 import CookTestPostModal from './CookTestPostModal'
 import EditCookTestPostModal from './EditCookTestPostModal'
 import UserCookPostsModal from './UserCookPostsModal'
+import { BadgeIcon } from './badges/BadgeSet'
+import { badgeMetaById } from '../data/badges'
+import { usersAPI } from '../api/users'
 
 type FilterView = 'all' | 'liked' | 'mine'
 type SortOption = 'latest' | 'likes'
@@ -35,6 +38,7 @@ export default function CookTestDetailModal({
   const [likedSet, setLikedSet] = useState<Set<number>>(new Set())
   const [pendingLikes, setPendingLikes] = useState<Set<number>>(new Set())
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
+  const [userBadgeMap, setUserBadgeMap] = useState<Record<string, number | null>>({})
   const [filterView, setFilterView] = useState<FilterView>('all')
   const [showPosts, setShowPosts] = useState(true)
   const [sortOption, setSortOption] = useState<SortOption>('latest')
@@ -66,6 +70,37 @@ export default function CookTestDetailModal({
     }
     return list
   }, [posts, sortOption])
+
+  useEffect(() => {
+    const ids = Array.from(new Set(posts.map(p => String(p.user_id))))
+    const missing = ids.filter(id => !(id in userBadgeMap))
+    if (missing.length === 0) return
+    let cancelled = false
+    const loadBadges = async () => {
+      const results = await Promise.all(
+        missing.map(async id => {
+          try {
+            const { badge_id } = await usersAPI.getDisplayedBadge(id)
+            return [id, badge_id ?? null] as [string, number | null]
+          } catch {
+            return [id, null] as [string, number | null]
+          }
+        }),
+      )
+      if (cancelled) return
+      setUserBadgeMap(prev => {
+        const next = { ...prev }
+        for (const [id, badgeId] of results) {
+          next[id] = badgeId
+        }
+        return next
+      })
+    }
+    loadBadges()
+    return () => {
+      cancelled = true
+    }
+  }, [posts, userBadgeMap])
 
   const uniquePodiumEntries = useMemo(() => {
     if (!isEventClosed) return []
@@ -316,6 +351,9 @@ export default function CookTestDetailModal({
             {sortedPosts.map(p => {
               const liked = likedSet.has(p.post_id)
               const busy = pendingLikes.has(p.post_id)
+              const userIdKey = String(p.user_id)
+              const userBadgeIdFromMap = userBadgeMap[userIdKey]
+              const userBadgeMeta = userBadgeIdFromMap ? badgeMetaById[userBadgeIdFromMap] : undefined
               return (
                 <article key={p.post_id} className="feed-card">
                   <div className="feed-head">
@@ -326,6 +364,11 @@ export default function CookTestDetailModal({
                         className="user-link"
                         onClick={() => openUserPosts(p)}
                       >
+                        {userBadgeMeta?.iconCode && (
+                          <span className="displayed-user-badge" aria-hidden>
+                            <BadgeIcon code={userBadgeMeta.iconCode} earned size={20} />
+                          </span>
+                        )}
                         {p.user_name ?? `사용자 #${p.user_id}`}
                       </button>
                       <span> · {fmt(p.created_at)}</span>

@@ -81,11 +81,13 @@
   display:flex;
   align-items:center;
   gap:0;
-  margin: 8px 0 0px;
+  margin: px 0 0px;
   border:1px solid #e9c86f;
   background:#fffdf2;
   border-radius:12px;
-  overflow:hidden
+  overflow:hidden;
+  height: 35px;
+  width: 200px;
 }
 .subtab-btn {
   flex:1;
@@ -94,7 +96,7 @@
   font-weight:600;
   color:#7b4e2d;
   user-select:none;
-  font-size:15px;
+  font-size:13px;
   border:none;
   background:transparent;
   transition:background .2s ease, color .2s ease;
@@ -118,6 +120,18 @@
 .badge-tile-btn{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px; border:none; background:transparent; cursor:pointer; width:100%; box-sizing:border-box }
 .badge-tile-btn.locked{ filter: grayscale(1); opacity:.6 }
 .badge-tile-btn.earned{ position:relative }
+.badge-tile-btn.displayed::after{
+  content:'대표';
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  padding:2px 6px;
+  border-radius:12px;
+  background:#fee2b3;
+  color:#a16207;
+  font-size:10px;
+  font-weight:700;
+}
 .badge-tile-btn:hover{ transform: translateY(-1px) }
 
 /* shine effect wrapper */
@@ -138,3 +152,13 @@
 /* Keep scrolling inside MyPage tab only */
 .app-tab.mypage{ overflow:auto; max-width:100%; }
 .app-tab.mypage .card{ max-width:100%; box-sizing:border-box; }
+.my-badge-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+}
+.btn--tiny{
+  font-size:12px;
+  padding:4px 10px;
+}

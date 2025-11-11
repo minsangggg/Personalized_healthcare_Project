@@ -3,6 +3,7 @@ import { authAPI } from '../api/auth'
 import type { User } from '../api/auth'
 import EditProfileDialog from '../components/EditProfileDialog'
 import BadgeGallery from '../components/badges/BadgeGallery'
+import BadgeDisplaySelector from '../components/badges/BadgeDisplaySelector'
 import { badgesAPI, type BadgeOverview } from '../api/badges'
 import './MyPage.css'
 
@@ -18,6 +19,9 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
   const [badgeOverview, setBadgeOverview] = useState<BadgeOverview | null>(null)
   const [badgeLoading, setBadgeLoading] = useState(false)
   const [badgeError, setBadgeError] = useState<string | null>(null)
+  const [showBadgeSelector, setShowBadgeSelector] = useState(false)
+  const [displayLoading, setDisplayLoading] = useState(false)
+  const [displayError, setDisplayError] = useState<string | null>(null)
 
   const fetchMe = async () => {
     setLoading(true); setError(null)
@@ -67,6 +71,26 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
       setBadgeError('뱃지를 불러오지 못했어요.')
     } finally {
       setBadgeLoading(false)
+    }
+  }
+
+  const displayedBadgeId =
+    badgeOverview?.earned?.find(b => b.is_displayed)?.badge_id ?? null
+  const earnedBadges = badgeOverview?.earned ?? []
+
+  const handleBadgeDisplayChange = async (badgeId: number | null) => {
+    if (displayLoading) return false
+    setDisplayError(null)
+    try {
+      setDisplayLoading(true)
+      await badgesAPI.setDisplayBadge(badgeId)
+      await fetchBadges()
+      return true
+    } catch {
+      setDisplayError('프로필에 표시할 뱃지를 바꾸지 못했어요.')
+      return false
+    } finally {
+      setDisplayLoading(false)
     }
   }
 
@@ -159,13 +183,31 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
 
       {activeTab === 'badges' && (
         <div className="card my-card">
-          <h3 style={{marginTop:0}}>나의 뱃지</h3>
+          <div className="my-badge-header">
+            <h3 style={{marginTop:0}}>나의 뱃지</h3>
+            <button
+              type="button"
+              className="btn btn--tiny"
+              onClick={() => { setDisplayError(null); setShowBadgeSelector(true) }}
+              disabled={earnedBadges.length === 0}
+            >
+              프로필 표시 선택
+            </button>
+          </div>
           {badgeLoading && <div className="note">뱃지를 불러오는 중...</div>}
           {badgeError && <div className="error">{badgeError}</div>}
           {!badgeLoading && !badgeError && !badgeOverview && (
             <div className="note">아직 획득한 배지가 없어요.</div>
           )}
-          {badgeOverview && <BadgeGallery overview={badgeOverview} />}
+          {badgeOverview && (
+            <BadgeGallery
+              overview={badgeOverview}
+              displayedBadgeId={displayedBadgeId}
+              onDisplayChange={handleBadgeDisplayChange}
+              displayLoading={displayLoading}
+              displayError={displayError}
+            />
+          )}
         </div>
       )}
       {showEdit && me && (
@@ -177,6 +219,16 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
       )}
       {showDelete && (
         <DeleteAccountDialog onClose={()=>setShowDelete(false)} />
+      )}
+      {showBadgeSelector && badgeOverview && (
+        <BadgeDisplaySelector
+          earnedBadges={badgeOverview.earned}
+          displayedBadgeId={displayedBadgeId}
+          onSelect={handleBadgeDisplayChange}
+          loading={displayLoading}
+          error={displayError}
+          onClose={() => setShowBadgeSelector(false)}
+        />
       )}
     </section>
   )

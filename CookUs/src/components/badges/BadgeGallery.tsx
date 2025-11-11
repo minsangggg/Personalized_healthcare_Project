@@ -6,6 +6,10 @@ import { badgeCategoryLabels, badgeMetaById, badgeDisplayOrder, type BadgeCatego
 
 type Props = {
   overview?: BadgeOverview | null
+  displayedBadgeId?: number | null
+  onDisplayChange?: (badgeId: number | null) => Promise<boolean>
+  displayLoading?: boolean
+  displayError?: string | null
 }
 
 type EnrichedBadge = {
@@ -22,8 +26,14 @@ type EnrichedBadge = {
 
 const categoryOrder: BadgeCategoryKey[] = ['contest', 'ranks', 'likes', 'recipe', 'cooked', 'fridge', 'goal', 'others']
 
-export default function BadgeGallery({ overview }: Props) {
-  const [active, setActive] = useState<{ code?: string; title: string; description?: string; awardedAt?: string | null; categoryLabel?: string } | null>(null)
+export default function BadgeGallery({
+  overview,
+  displayedBadgeId,
+  onDisplayChange,
+  displayLoading,
+  displayError,
+}: Props) {
+  const [active, setActive] = useState<{ id: number; code?: string; title: string; description?: string; awardedAt?: string | null; categoryLabel?: string; owned: boolean } | null>(null)
 
   const earnedMap = useMemo(() => {
     const map = new Map<number, BadgeOverview['earned'][number]>()
@@ -115,15 +125,21 @@ export default function BadgeGallery({ overview }: Props) {
                 return (
                   <button
                     key={item.id}
-                    className={['badge-tile-btn', owned ? 'earned' : 'locked'].join(' ')}
+                    className={[
+                      'badge-tile-btn',
+                      owned ? 'earned' : 'locked',
+                      owned && item.id === displayedBadgeId ? 'displayed' : '',
+                    ].join(' ')}
                     title={buttonTitle}
                     onClick={() =>
                       setActive({
+                        id: item.id,
                         code: item.iconCode,
                         title: item.name,
                         description: item.description,
                         awardedAt: item.earnedAt,
                         categoryLabel: item.categoryLabel,
+                        owned,
                       })
                     }
                   >
@@ -151,6 +167,12 @@ export default function BadgeGallery({ overview }: Props) {
           awardedAt={active.awardedAt}
           description={active.description}
           categoryLabel={active.categoryLabel}
+          badgeId={active.id}
+          canDisplay={active.owned}
+          displayedBadgeId={displayedBadgeId}
+          onDisplayChange={onDisplayChange}
+          displayLoading={displayLoading}
+          displayError={displayError}
           onClose={() => setActive(null)}
         />
       )}

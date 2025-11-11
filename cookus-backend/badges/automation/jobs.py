@@ -2,7 +2,7 @@ import logging
 import os
 
 from core.database import get_conn
-from .engine import handle_user_event, award_badge
+from .engine import handle_user_event, award_badge, update_badge_process
 
 _base_logger = logging.getLogger("uvicorn.error")
 log = _base_logger.getChild("badges.automation.jobs")
@@ -85,17 +85,32 @@ def check_new_fridge_items():
     with get_conn() as conn, conn.cursor() as cur:
       cur.execute(
         """
-        SELECT DISTINCT id AS user_id
+        SELECT id AS user_id, COUNT(*) AS new_items
         FROM fridge_item
         WHERE stored_at >= NOW() - INTERVAL %s SECOND
+        GROUP BY id
         """,
         (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
       if rows:
         log.info("check_new_fridge_items: detected %d new fridge items", len(rows))
+      if not rows:
+        return
+
+      cur.execute("SELECT badge_id FROM badge_info WHERE category='fridge'")
+      fridge_badges = cur.fetchall()
+      if not fridge_badges:
+        log.debug("No fridge badges configured; skipping")
+        return
+
       for row in rows:
-        handle_user_event(row["user_id"], "fridge", conn)
+        user_id = row["user_id"]
+        increment = row["new_items"]
+        for badge in fridge_badges:
+          progress = update_badge_process(user_id, badge["badge_id"], increment, conn)
+          if progress["completed"]:
+            award_badge(user_id, badge["badge_id"], conn)
   _run_job("check_new_fridge_items", worker)
 
 
