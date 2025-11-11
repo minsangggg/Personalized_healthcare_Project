@@ -47,3 +47,14 @@
 .ingredient-row .btn{
   white-space:nowrap;
 }
+.custom-add-panel{
+  border:1px dashed #e8c27c;
+  border-radius:10px;
+  padding:10px 12px;
+  background:#fff9ec;
+}
+.custom-add-actions{
+  display:flex;
+  gap:8px;
+  margin-top:8px;
+}

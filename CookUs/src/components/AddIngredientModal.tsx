@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { fridgeAPI } from '../api/fridge'
 import type { Ingredient } from '../api/fridge'
 import './AddIngredientModal.css'
@@ -42,8 +42,13 @@ export default function AddIngredientModal({ onClose }: Props) {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<Ingredient[]>([])
+  const [showCustomPrompt, setShowCustomPrompt] = useState(false)
+  const [addingCustom, setAddingCustom] = useState(false)
+  const [customError, setCustomError] = useState<string | null>(null)
+  const [customInfo, setCustomInfo] = useState<string | null>(null)
 
   const [picked, setPicked] = useState<Record<string, number>>({})
+  const trimmedQuery = q.trim()
 
   useEffect(() => {
     (async () => {
@@ -59,20 +64,26 @@ export default function AddIngredientModal({ onClose }: Props) {
     })()
   }, [])
 
+  useEffect(() => {
+    setShowCustomPrompt(false)
+    setCustomError(null)
+    setCustomInfo(null)
+  }, [trimmedQuery])
+
   // 검색 호출
   useEffect(() => {
     let cancel = false
     const run = async () => {
-      if (!q.trim()) { setResults([]); return }
+      if (!trimmedQuery) { setResults([]); return }
       setLoading(true)
       try {
-        const r = await fridgeAPI.searchIngredients(q.trim())
+        const r = await fridgeAPI.searchIngredients(trimmedQuery)
         if (!cancel) setResults(r)
       } finally { if (!cancel) setLoading(false) }
     }
     run()
     return () => { cancel = true }
-  }, [q])
+  }, [trimmedQuery])
 
   const pickedList = useMemo(
     () => Object.entries(picked).map(([name, quantity]) => ({ name, quantity, meta: getUnitMeta(name) })),
@@ -110,6 +121,28 @@ export default function AddIngredientModal({ onClose }: Props) {
       return { ...p, [name]: next }
     })
 
+  const confirmCustomIngredient = async () => {
+    if (!trimmedQuery) return
+    setAddingCustom(true)
+    setCustomError(null)
+    try {
+      const { registered } = await fridgeAPI.addIngredientName(trimmedQuery)
+      addFromSearch(trimmedQuery)
+      setResults([{ name: trimmedQuery } as Ingredient])
+      if (!registered) {
+        setCustomInfo('검색 목록에는 추후에 반영될 수 있어요.')
+      } else {
+        setCustomInfo(null)
+      }
+      setShowCustomPrompt(false)
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? err?.message ?? '추가에 실패했어요.'
+      setCustomError(detail)
+    } finally {
+      setAddingCustom(false)
+    }
+  }
+
   const save = async () => {
     const items: Ingredient[] = pickedList.map(({ name, quantity }) => ({ name, quantity }))
     await fridgeAPI.saveFridge(items, 'replace', true)
@@ -137,7 +170,34 @@ export default function AddIngredientModal({ onClose }: Props) {
           {loading ? (
             <div>검색 중…</div>
           ) : results.length === 0 ? (
-            <div style={{ opacity: .7 }}>검색 결과가 없습니다.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, opacity: .9 }}>
+              <div>검색 결과가 없습니다.</div>
+              {trimmedQuery && (
+                showCustomPrompt ? (
+                  <div className="custom-add-panel">
+                    <div>새 재료 '{trimmedQuery}'를 추가할까요?</div>
+                    <div className="custom-add-actions">
+                      <button className="btn" onClick={confirmCustomIngredient} disabled={addingCustom}>
+                        {addingCustom ? '추가 중…' : '추가'}
+                      </button>
+                      <button className="btn secondary" onClick={() => setShowCustomPrompt(false)} disabled={addingCustom}>
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="btn"
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => setShowCustomPrompt(true)}
+                  >
+                    {`+'${trimmedQuery}' 추가`}
+                  </button>
+                )
+              )}
+              {customError && <div className="error">{customError}</div>}
+              {customInfo && <div className="hint small">{customInfo}</div>}
+            </div>
           ) : (
             <div style={{ display: 'grid', gap: 4 }}>
               {results.map(r => (
@@ -152,9 +212,12 @@ export default function AddIngredientModal({ onClose }: Props) {
               ))}
             </div>
           )}
+          {results.length > 0 && customInfo && (
+            <div className="hint small" style={{ marginTop: 6 }}>{customInfo}</div>
+          )}
         </div>
 
-        {/* 내 재료 목록(수정/삭제) */}
+        {/* 내 재료 목록 */}
         <h3 style={{ marginTop: 16 }}>내 재료</h3>
         {pickedList.length === 0 ? (
           <div style={{ opacity: .7 }}>현재 담긴 재료가 없습니다.</div>
@@ -181,7 +244,7 @@ export default function AddIngredientModal({ onClose }: Props) {
         )}
 
         {/* 액션 */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 20, marginLeft:130 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20, marginLeft: 130 }}>
           <button className="btn" onClick={save}>저장</button>
           <button className="btn secondary" onClick={() => onClose(false)}>취소</button>
         </div>
