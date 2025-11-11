@@ -121,9 +121,18 @@ export const cooktestAPI = {
 
   async listUserPosts(userId: number | string): Promise<UserCookPostsResponse> {
     const cleanId = extractCookUserId(userId) || String(userId ?? '').trim()
-    const { data } = await api.get(`/users/${cleanId}/cooktest-posts`)
-    const posts = Array.isArray((data as any)?.posts) ? (data as any).posts : Array.isArray(data) ? data : []
-    const events = Array.isArray((data as any)?.events) ? (data as any).events : []
-    return { posts, events }
+    const normalize = (data: any): UserCookPostsResponse => {
+      const posts = Array.isArray(data?.posts) ? data.posts : Array.isArray(data) ? data : []
+      const events = Array.isArray(data?.events) ? data.events : []
+      return { posts, events }
+    }
+    try {
+      const { data } = await api.get(`/users/${cleanId}/cooktest-posts`)
+      return normalize(data)
+    } catch (err: any) {
+      if (err?.response?.status !== 404) throw err
+      const { data } = await api.get(`/cooktest/users/${cleanId}/posts`)
+      return normalize(data)
+    }
   },
 }

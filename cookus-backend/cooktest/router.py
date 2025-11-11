@@ -1,15 +1,16 @@
 ﻿from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pymysql.err import ProgrammingError
 
 from core import get_conn, get_current_user
 from core.security import bearer, token_service
+from notifications.service import notify
 import os
 import uuid
 from datetime import datetime
 import json
 import re
+from pymysql.err import ProgrammingError
 try:
     import boto3
     from botocore.config import Config as BotoConfig
@@ -17,20 +18,26 @@ except Exception:
     boto3 = None
     BotoConfig = None
 
+
 router = APIRouter()
 
+
 def _parse_imgs(raw: Any) -> List[str]:
-    imgs: List[str] = []
-    if isinstance(raw, str) and raw.strip().startswith("["):
-        try:
-            imgs = json.loads(raw)
-        except Exception:
-            imgs = []
-    elif isinstance(raw, list):
-        imgs = [str(x) for x in raw]
-    elif isinstance(raw, str) and raw:
-        imgs = [raw]
-    return imgs
+    if isinstance(raw, list):
+        return [str(x) for x in raw if x]
+    if isinstance(raw, str):
+        txt = raw.strip()
+        if not txt:
+            return []
+        if txt.startswith("["):
+            try:
+                arr = json.loads(txt)
+                if isinstance(arr, list):
+                    return [str(x) for x in arr if x]
+            except Exception:
+                return []
+        return [txt]
+    return []
 
 
 def _user_id_variants(raw: str) -> List[str]:
@@ -41,19 +48,11 @@ def _user_id_variants(raw: str) -> List[str]:
     prefix_pattern = re.compile(r"^(?:사용자|user)\s*#", re.IGNORECASE)
     stripped = prefix_pattern.sub("", base).strip()
     if stripped:
-        variants.add(stripped)
-        variants.add(f"사용자#{stripped}")
-        variants.add(f"user#{stripped}")
-        try:
-            num = int(stripped)
-            variants.add(str(num))
-        except ValueError:
-            pass
-    try:
-        num_base = int(base)
-        variants.add(str(num_base))
-    except ValueError:
-        pass
+        variants.update({
+            stripped,
+            f"사용자#{stripped}",
+            f"user#{stripped}",
+        })
     return [v for v in variants if v]
 
 
@@ -227,7 +226,7 @@ def create_post(
     # normalize image payload (0..7)
     if img_urls is not None:
         if len(img_urls) > 7:
-            raise HTTPException(status_code=400, detail="�̹����� �ִ� 7����� �����մϴ�")
+            raise HTTPException(status_code=400, detail="At most 7 images allowed")
         img_column_value: Optional[str] = json.dumps(img_urls)
     else:
         img_column_value = img_url
@@ -387,8 +386,8 @@ def get_my_likes(event_id: int, current_user: str = Depends(get_current_user)) -
 
 
 @router.get("/users/{user_id}/cooktest-posts")
+@router.get("/cooktest/users/{user_id}/posts")
 def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
-    """Return all cooktest posts and events for a specific user."""
     variants = _user_id_variants(user_id)
     if not variants:
         variants = [user_id]
@@ -403,7 +402,6 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
         params.append(viewer)
 
     with get_conn() as conn, conn.cursor() as cur:
-        # Posts authored by the user
         sql_posts = f"""
             SELECT
               b.content_id AS post_id,
@@ -450,20 +448,14 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
                 cur.execute(sql_posts_no_profile, tuple(params))
             else:
                 raise
-        raw_posts = cur.fetchall()
-
+        rows = cur.fetchall()
         posts: List[Dict[str, Any]] = []
-        for row in raw_posts:
+        for row in rows:
             imgs = _parse_imgs(row.get("img_url"))
-            posts.append(
-                {
-                    **row,
-                    "img_urls": imgs,
-                    "img_url": imgs[0] if imgs else row.get("img_url"),
-                }
-            )
+            row["img_urls"] = imgs
+            row["img_url"] = imgs[0] if imgs else row.get("img_url")
+            posts.append(row)
 
-        # Distinct events the user has participated in
         cur.execute(
             f"""
             SELECT DISTINCT
@@ -483,34 +475,6 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
     return {"posts": posts, "events": events}
 
 
-@router.get("/posts/{post_id}")
-def get_post_global(post_id: int):
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-              content_id AS post_id,
-              event_id,
-              user_id,
-              content_title,
-              content_text,
-              img_url,
-              like_count AS likes,
-              created_at
-            FROM board
-            WHERE content_id=%s
-            """,
-            (post_id,),
-        )
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Post not found")
-        imgs = _parse_imgs(row.get("img_url"))
-        row["img_urls"] = imgs
-        row["img_url"] = imgs[0] if imgs else row.get("img_url")
-    return row
-
-
 @router.post("/posts/{post_id}/like", dependencies=[Depends(get_current_user)])
 def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Dict[str, Any]:
     uid = current_user
@@ -523,18 +487,28 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
             """,
             (post_id, uid),
         )
-        if cur.rowcount == 1:
+        new_like = (cur.rowcount == 1)
+        if new_like:
             cur.execute(
                 "UPDATE board SET like_count = like_count + 1 WHERE content_id=%s",
                 (post_id,),
             )
-            if cur.rowcount == 0:
-                raise HTTPException(status_code=404, detail="Post not found")
-        cur.execute("SELECT like_count AS likes FROM board WHERE content_id=%s", (post_id,))
+        cur.execute("SELECT user_id, like_count AS likes FROM board WHERE content_id=%s", (post_id,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
-        return {"likes": row["likes"], "liked": True}
+        owner_id, like_count = row["user_id"], row["likes"]
+    # Notify on every new like (except self-like)
+    if new_like and str(uid) != str(owner_id):
+        notify(
+            user_id=str(owner_id),
+            title="새 좋아요",
+            body=f"{uid}님이 게시글에 좋아요를 눌렀어요.",
+            link_url=f"/boards/{post_id}",
+            type="like",
+            related_id=post_id,
+        )
+    return {"likes": like_count, "liked": True}
 
 
 @router.delete("/posts/{post_id}/like", dependencies=[Depends(get_current_user)]) 
@@ -562,8 +536,6 @@ def unlike_post(post_id: int, current_user: str = Depends(get_current_user)) -> 
         return {"likes": row["likes"], "liked": False}
 
 
-
-
 # -------- S3 Presigned Uploads --------
 
 @router.post("/events/{event_id}/presigned-urls")
@@ -582,7 +554,7 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
     if len(file_exts) == 0:
         raise HTTPException(status_code=400, detail="no files requested")
     if len(file_exts) > 7:
-        raise HTTPException(status_code=400, detail="최�? 7개까지�??�로??가?�합?�다")
+        raise HTTPException(status_code=400, detail="Up to 7 files allowed")
 
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-northeast-2"
     bucket = os.getenv("AWS_S3_BUCKET") or os.getenv("S3_BUCKET")
@@ -602,7 +574,7 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
     for ext in file_exts:
         ext = ext.strip(".").lower()
         if ext not in ("jpg", "jpeg", "png"):
-            raise HTTPException(status_code=400, detail=f"지?�하지 ?�는 ?�장?? {ext}")
+            raise HTTPException(status_code=400, detail=f"Unsupported extension {ext}")
         file_name = f"{current_user}_{event_id}_{now}_{uuid.uuid4()}.{ext}"
         key = f"uploads/{event_id}/{file_name}"
         try:
@@ -616,9 +588,8 @@ def generate_presigned_urls(event_id: int, body: Dict[str, Any], current_user: s
                 ExpiresIn=300,
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"URL ?�성 ?�패: {e}")
+            raise HTTPException(status_code=500, detail=f"Presign failed: {e}")
         file_url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
         upload_list.append({"upload_url": url, "file_url": file_url, "file_name": file_name})
 
     return {"status": "ready", "event_id": event_id, "user_id": current_user, "upload_list": upload_list, "expires_in": 300}
-

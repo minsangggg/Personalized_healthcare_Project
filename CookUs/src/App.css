@@ -50,27 +50,9 @@
 /* Tab icon for My Page */
 .tab .tab-icon{ display:inline-flex; width:26px; height:20px; align-items:center; justify-content:center }
 .tab .tab-icon svg{ width:24px; height:24px; display:block; margin-top:2px; }
-.tab .tab-icon--calendar svg{
-  transform:none;
-  width:24px;
-  height:24px;
-}
-.tab .tab-icon--nutrition svg{
-  width:26px;
-  height:26px;
-  transform: rotate(45deg);
-}
-.tab .sr-only{
-  position:absolute;
-  width:1px;
-  height:1px;
-  padding:0;
-  margin:-1px;
-  overflow:hidden;
-  clip:rect(0,0,0,0);
-  white-space:nowrap;
-  border:0;
-}
+.tab .tab-icon--calendar svg{ transform:none; width:24px; height:24px }
+.tab .tab-icon--nutrition svg{ width:26px; height:26px; transform: rotate(45deg) }
+.tab .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
 
 .app-main{
   flex:1 1 auto;

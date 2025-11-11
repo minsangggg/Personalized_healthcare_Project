@@ -13,6 +13,7 @@ import SignupDialog from './components/SignupDialog'
 import { authAPI } from './api/auth'
 import CookTest from './pages/CookTest'
 import Nutrition from './pages/Nutrition'
+import Notifications from './components/Notifications'
 
 export type User = { user_id: string; user_name: string }
 export type TabKey = 'fridge' | 'calendar' | 'dashboard' | 'cooktest' | 'nutrition' | 'mypage'
@@ -65,6 +66,9 @@ export default function App() {
           onSignupClick={() => setShowSignup(true)}
           onLogout={handleLogout}
         />
+
+        {/* ✅ 알림 벨/드롭다운 (로그인 시에만). 절대 위치로 좌상단 고정 */}
+        {isLoggedIn && (<Notifications isLoggedIn={isLoggedIn} />)}
 
         <main className={`app-main ${tab === 'dashboard' ? 'app-main--dashboard' : ''}`}>
           {tab === 'fridge' && (

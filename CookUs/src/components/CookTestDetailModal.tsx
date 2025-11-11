@@ -5,10 +5,9 @@ import CreateCookTestPostModal from './CreateCookTestPostModal'
 import CookTestPostModal from './CookTestPostModal'
 import EditCookTestPostModal from './EditCookTestPostModal'
 import UserCookPostsModal from './UserCookPostsModal'
-import { formatCookUserDisplay, formatCookUserHandle } from '../utils/cooktest'
 
 type FilterView = 'all' | 'liked' | 'mine'
-type SortOrder = 'latest' | 'likes'
+type SortOption = 'latest' | 'likes'
 
 type Props = {
   eventId: number
@@ -38,8 +37,9 @@ export default function CookTestDetailModal({
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [filterView, setFilterView] = useState<FilterView>('all')
   const [showPosts, setShowPosts] = useState(true)
-  const [sortOrder, setSortOrder] = useState<SortOrder>('latest')
-  const [userPostsModal, setUserPostsModal] = useState<{ userId: number | string; userName?: string } | null>(null)
+  const [sortOption, setSortOption] = useState<SortOption>('latest')
+  const [userPostsTarget, setUserPostsTarget] = useState<{ userId: number; userName?: string } | null>(null)
+
   const isEventClosed = useMemo(() => {
     if (!event) return false
     const end = new Date(event.end_date)
@@ -48,22 +48,24 @@ export default function CookTestDetailModal({
   }, [event])
 
   const sortedPosts = useMemo(() => {
-    const base = [...posts]
-    if (sortOrder === 'likes') {
-      base.sort((a, b) => {
-        if ((b.likes ?? 0) !== (a.likes ?? 0)) return (b.likes ?? 0) - (a.likes ?? 0)
+    const list = [...posts]
+    if (sortOption === 'likes') {
+      list.sort((a, b) => {
+        if (b.likes !== a.likes) return b.likes - a.likes
         return a.post_id - b.post_id
       })
     } else {
-      base.sort((a, b) => {
-        const aTime = new Date(a.created_at).getTime()
-        const bTime = new Date(b.created_at).getTime()
-        if (Number.isFinite(aTime) && Number.isFinite(bTime)) return bTime - aTime
-        return a.post_id - b.post_id
+      list.sort((a, b) => {
+        const aTime = Date.parse(a.created_at)
+        const bTime = Date.parse(b.created_at)
+        if (Number.isFinite(bTime) && Number.isFinite(aTime) && bTime !== aTime) {
+          return bTime - aTime
+        }
+        return b.post_id - a.post_id
       })
     }
-    return base
-  }, [posts, sortOrder])
+    return list
+  }, [posts, sortOption])
 
   const uniquePodiumEntries = useMemo(() => {
     if (!isEventClosed) return []
@@ -148,7 +150,6 @@ export default function CookTestDetailModal({
       setPosts(allPosts)
       return
     }
-    // require login for filtered views
     if (!isLoggedIn) {
       setFilterView('all')
       onRequireLogin()
@@ -171,9 +172,7 @@ export default function CookTestDetailModal({
         if (!disposed) setLikedSet(new Set())
       }
     })()
-    return () => {
-      disposed = true
-    }
+    return () => { disposed = true }
   }, [eventId, isLoggedIn])
 
   const myPostCount = useMemo(() => {
@@ -216,12 +215,8 @@ export default function CookTestDetailModal({
   }
 
   const refreshSinglePost = async (postId: number) => {
-    try {
-      const fresh = await cooktestAPI.getPost(eventId, postId)
-      setActivePost(fresh)
-    } catch {
-      setActivePost(null)
-    }
+    try { setActivePost(await cooktestAPI.getPost(eventId, postId)) }
+    catch { setActivePost(null) }
   }
 
   const toggleLike = async (postId: number, liked: boolean) => {
@@ -231,50 +226,24 @@ export default function CookTestDetailModal({
     const delta = liked ? -1 : 1
 
     setPendingLikes(prev => new Set(prev).add(postId))
-    setPosts(prev =>
-      prev.map(p =>
-        p.post_id === postId ? { ...p, likes: Math.max(0, p.likes + delta) } : p
-      )
-    )
-    setLikedSet(prev => {
-      const next = new Set(prev)
-      if (liked) next.delete(postId)
-      else next.add(postId)
-      return next
-    })
+    setPosts(prev => prev.map(p => p.post_id === postId ? { ...p, likes: Math.max(0, p.likes + delta) } : p))
+    setLikedSet(prev => { const next = new Set(prev); if (liked) next.delete(postId); else next.add(postId); return next })
 
     try {
-      const { likes } = liked
-        ? await cooktestAPI.unlikePost(postId)
-        : await cooktestAPI.likePost(postId)
-      setPosts(prev =>
-        prev.map(p => (p.post_id === postId ? { ...p, likes } : p))
-      )
-      if (filterView === 'liked' && liked) {
-        setPosts(prev => prev.filter(p => p.post_id !== postId))
-      }
-      if (filterView === 'all') {
-        setAllPosts(prev =>
-          prev.map(p => (p.post_id === postId ? { ...p, likes } : p))
-        )
-      }
+      const { likes } = liked ? await cooktestAPI.unlikePost(postId) : await cooktestAPI.likePost(postId)
+      setPosts(prev => prev.map(p => (p.post_id === postId ? { ...p, likes } : p)))
+      if (filterView === 'liked' && liked) setPosts(prev => prev.filter(p => p.post_id !== postId))
+      if (filterView === 'all') setAllPosts(prev => prev.map(p => (p.post_id === postId ? { ...p, likes } : p)))
     } catch {
-      setPosts(prev =>
-        prev.map(p => (p.post_id === postId ? { ...p, likes: prevLikes } : p))
-      )
-      setLikedSet(prev => {
-        const next = new Set(prev)
-        if (liked) next.add(postId)
-        else next.delete(postId)
-        return next
-      })
+      setPosts(prev => prev.map(p => (p.post_id === postId ? { ...p, likes: prevLikes } : p)))
+      setLikedSet(prev => { const next = new Set(prev); if (liked) next.add(postId); else next.delete(postId); return next })
     } finally {
-      setPendingLikes(prev => {
-        const next = new Set(prev)
-        next.delete(postId)
-        return next
-      })
+      setPendingLikes(prev => { const next = new Set(prev); next.delete(postId); return next })
     }
+  }
+
+  const openUserPosts = (post: CookPost) => {
+    setUserPostsTarget({ userId: post.user_id, userName: post.user_name })
   }
 
   return (
@@ -284,17 +253,13 @@ export default function CookTestDetailModal({
           <div>
             <div style={{ fontSize: 18, fontWeight: 700 }}>{event.event_name}</div>
             <div style={{ color: '#666', marginTop: 4 }}>{event.event_description}</div>
-            <div style={{ color: '#888', marginTop: 6 }}>
-              {fmt(event.start_date)} ~ {fmt(event.end_date)}
-            </div>
+            <div style={{ color: '#888', marginTop: 6 }}>{new Date(event.start_date).toLocaleString()} ~ {new Date(event.end_date).toLocaleString()}</div>
             {isEventClosed && (
               <div className="podium-wrap">
                 {['silver', 'gold', 'bronze'].map((tier) => {
                   const rankNumber = tier === 'gold' ? 1 : tier === 'silver' ? 2 : 3
                   const group = podiumByRank.get(rankNumber) || []
-                  const label = group && group.length
-                    ? group.map(p => `#${p.user_id}`).join(', ')
-                    : '빈자리'
+                  const label = group && group.length ? group.map(p => `#${p.user_id}`).join(', ') : '빈자리'
                   const rankLabel = `${rankNumber}위`
                   return (
                     <div key={tier} className={`podium-tier podium-${tier}`}>
@@ -316,9 +281,7 @@ export default function CookTestDetailModal({
               </button>
             )}
             {!isEventClosed ? (
-              <button className="btn" onClick={ensureLoginAndOpenCreate}>
-                참가하기
-              </button>
+              <button className="btn" onClick={ensureLoginAndOpenCreate}>참가하기</button>
             ) : (
               <div className="cooktest-closed-tag">참여 기간이 지난 대회입니다</div>
             )}
@@ -329,18 +292,13 @@ export default function CookTestDetailModal({
         {loading && <div className="hint">불러오는 중…</div>}
         {error && <div className="error">{error}</div>}
 
-        {!showPosts && (
-          <div className="hint">게시글 보기를 눌러 좋아요 순위 게시글을 확인하세요.</div>
-        )}
-        {showPosts && (
+        {!showPosts && isEventClosed && (<div className="hint">게시글 보기를 눌러 좋아요 순위 게시글을 확인하세요.</div>)}
+        {(showPosts || !isEventClosed) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="cooktest-filter-bar">
               <label className="cooktest-view-select">
                 <span>보기</span>
-                <select
-                  value={filterView}
-                  onChange={e => handleFilterChange(e.target.value as FilterView)}
-                >
+                <select value={filterView} onChange={e => handleFilterChange(e.target.value as FilterView)}>
                   <option value="all">전체</option>
                   <option value="liked">내 좋아요</option>
                   <option value="mine">내 글</option>
@@ -348,68 +306,45 @@ export default function CookTestDetailModal({
               </label>
               <label className="cooktest-view-select">
                 <span>정렬</span>
-                <select value={sortOrder} onChange={e => setSortOrder(e.target.value as SortOrder)}>
+                <select value={sortOption} onChange={e => setSortOption(e.target.value as SortOption)}>
                   <option value="latest">최신순</option>
                   <option value="likes">좋아요순</option>
                 </select>
               </label>
               {filterView !== 'all' && <div className="hint small">조건에 맞는 게시글만 표시돼요.</div>}
             </div>
-          {sortedPosts.map(p => {
-            const liked = likedSet.has(p.post_id)
-            const busy = pendingLikes.has(p.post_id)
-            return (
-              <article key={p.post_id} className="feed-card">
-                <div className="feed-head">
-                  <div
-                    className="feed-title"
-                    onClick={() => setActivePost(p)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {p.content_title}
+            {sortedPosts.map(p => {
+              const liked = likedSet.has(p.post_id)
+              const busy = pendingLikes.has(p.post_id)
+              return (
+                <article key={p.post_id} className="feed-card">
+                  <div className="feed-head">
+                    <div className="feed-title" onClick={() => setActivePost(p)} style={{ cursor: 'pointer' }}>{p.content_title}</div>
+                    <div className="feed-meta">
+                      <button
+                        type="button"
+                        className="user-link"
+                        onClick={() => openUserPosts(p)}
+                      >
+                        {p.user_name ?? `사용자 #${p.user_id}`}
+                      </button>
+                      <span> · {fmt(p.created_at)}</span>
+                    </div>
                   </div>
-                  <div className="feed-meta">
-                    {formatCookUserDisplay(p.user_id, p.user_name) !== '사용자' && (
-                      <span className="user-name">{formatCookUserDisplay(p.user_id, p.user_name)}</span>
-                    )}
-                    <button
-                      type="button"
-                      className="user-link"
-                      onClick={() => setUserPostsModal({ userId: p.user_id, userName: p.user_name })}
-                    >
-                      {formatCookUserHandle(p.user_id)}
+                  <div className="feed-body">{p.content_text}</div>
+                  {p.img_url && (
+                    <img src={p.img_url} alt="post" className="feed-image" onClick={() => setActivePost(p)} style={{ cursor: 'pointer' }} />
+                  )}
+                  <div className="feed-actions">
+                    <button className={`heart-btn ${liked ? 'on' : ''} ${busy ? 'pulse' : ''}`} onClick={() => toggleLike(p.post_id, liked)} aria-pressed={liked} disabled={busy || isEventClosed}>
+                      <span className="heart-icon" aria-hidden>{liked ? '♥' : '♡'}</span>
+                      <span className="heart-count">{p.likes}</span>
                     </button>
-                    <span aria-hidden>·</span>
-                    <span>{fmt(p.created_at)}</span>
                   </div>
-                </div>
-                <div className="feed-body">{p.content_text}</div>
-                {p.img_url && (
-                  <img
-                    src={p.img_url}
-                    alt="post"
-                    className="feed-image"
-                    onClick={() => setActivePost(p)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                )}
-                <div className="feed-actions">
-                  <button
-                    className={`heart-btn ${liked ? 'on' : ''} ${busy ? 'pulse' : ''}`}
-                    onClick={() => toggleLike(p.post_id, liked)}
-                    aria-pressed={liked}
-                    disabled={busy || isEventClosed}
-                  >
-                    <span className="heart-icon" aria-hidden>{liked ? '♥' : '♡'}</span>
-                    <span className="heart-count">{p.likes}</span>
-                  </button>
-                </div>
-              </article>
-            )
-          })}
-          {!loading && posts.length === 0 && (
-            <div className="hint">조건에 맞는 게시글이 없어요.</div>
-          )}
+                </article>
+              )
+            })}
+            {!loading && posts.length === 0 && (<div className="hint">조건에 맞는 게시글이 없어요.</div>)}
           </div>
         )}
       </div>
@@ -418,10 +353,7 @@ export default function CookTestDetailModal({
         <CreateCookTestPostModal
           eventId={eventId}
           onClose={() => setShowCreate(false)}
-          onCreated={async () => {
-            setShowCreate(false)
-            await refreshAfterChange()
-          }}
+          onCreated={async () => { setShowCreate(false); await refreshAfterChange() }}
         />
       )}
       {activePost && (
@@ -432,9 +364,7 @@ export default function CookTestDetailModal({
           currentUserId={userId}
           onClose={() => setActivePost(null)}
           onRequestEdit={post => setEditingPost(post)}
-          onDeleted={async () => {
-            await refreshAfterChange()
-          }}
+          onDeleted={async () => { await refreshAfterChange() }}
         />
       )}
       {editingPost && (
@@ -450,14 +380,14 @@ export default function CookTestDetailModal({
           }}
         />
       )}
-      {userPostsModal && (
+      {userPostsTarget && (
         <UserCookPostsModal
-          userId={userPostsModal.userId}
-          userName={userPostsModal.userName}
+          userId={userPostsTarget.userId}
+          userName={userPostsTarget.userName}
           currentUserId={userId}
           isLoggedIn={isLoggedIn}
           onRequireLogin={onRequireLogin}
-          onClose={() => setUserPostsModal(null)}
+          onClose={() => setUserPostsTarget(null)}
         />
       )}
     </ModalFrame>
@@ -465,9 +395,5 @@ export default function CookTestDetailModal({
 }
 
 function fmt(s: string) {
-  try {
-    return new Date(s).toLocaleString()
-  } catch {
-    return s
-  }
+  try { return new Date(s).toLocaleString() } catch { return s }
 }

@@ -4,7 +4,7 @@ import { nutritionAPI, type DayPlan, type DayStatus, type SupplementPlan } from 
 import SupplementRecommenderModal from '../components/SupplementRecommenderModal'
 import AddSupplementPlanModal from '../components/AddSupplementPlanModal'
 import NutritionCalendar from './NutritionCalendar'
-import chefBattery from '../assets/서빙 건전지.png'
+import chefBattery from '../assets/요리사 건전지.png'
 
 const isFutureDate = (dateStr: string) => {
   const d = new Date(dateStr)
@@ -13,16 +13,6 @@ const isFutureDate = (dateStr: string) => {
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
   return target > todayOnly
 }
-
-const SLOT_ORDER = ['아침', '점심', '저녁', '간식', '기타'] as const
-type SlotLabel = (typeof SLOT_ORDER)[number]
-const SLOT_ORDER_MAP: Record<SlotLabel, number> = SLOT_ORDER.reduce((acc, label, index) => {
-  acc[label] = index
-  return acc
-}, {} as Record<SlotLabel, number>)
-const sortSlots = (slots: SlotLabel[]) =>
-  [...slots].sort((a, b) => (SLOT_ORDER_MAP[a] ?? SLOT_ORDER.length) - (SLOT_ORDER_MAP[b] ?? SLOT_ORDER.length))
-const formatSlotList = (slots: SlotLabel[]) => sortSlots(slots).join(', ')
 
 type Props = {
   isLoggedIn: boolean
@@ -34,7 +24,6 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 
-  // plans list is not needed in UI (daily fetch provides items)
   const [monthStatus, setMonthStatus] = useState<Map<string, DayStatus>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +42,7 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
   }, [userName])
   const nickLabel = useMemo(() => (nickname.endsWith('님') ? nickname : `${nickname}님`), [nickname])
 
-  const slotLabel = (slot: string): SlotLabel => {
+  const slotLabel = (slot: string): string => {
     const cleaned = slot.replace(/\s+/g, '')
     if (/아침|모닝|morning|오전/i.test(cleaned)) return '아침'
     if (/점심|런치|lunch|정오/i.test(cleaned)) return '점심'
@@ -68,11 +57,11 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
         total: 0,
         taken: 0,
         missingPlans: [] as DayPlan[],
-        missingSlots: [] as SlotLabel[],
+        missingSlots: [] as string[],
       }
     }
     const missingPlans = daily.filter((p) => !p.taken)
-    const missingSlots = sortSlots(Array.from(new Set(missingPlans.map((p) => slotLabel(p.time_slot)))) as SlotLabel[])
+    const missingSlots = Array.from(new Set(missingPlans.map((p) => slotLabel(p.time_slot))))
     return {
       total: daily.length,
       taken: daily.filter((p) => p.taken).length,
@@ -84,41 +73,24 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
   const nutritionMotivation = useMemo(() => {
     if (!selectedDay) return null
     if (isFutureDate(selectedDay)) {
-      return {
-        tone: 'future' as const,
-        text: '이 날의 건강 루틴도 기대하고 있을게요! 알람 맞춰두는 건 어떨까요?',
-      }
+      return { tone: 'future' as const, text: '미래의 건강 루틴도 기대하고 있을게요! 알람 맞춰두는 건 어떨까요?' }
     }
-
     if (!daily || daily.length === 0) {
-      return {
-        tone: 'empty' as const,
-        text: '이 날 등록된 영양제가 없어요. 플랜을 추가해서 건강 루틴을 만들어보세요!',
-      }
+      return { tone: 'empty' as const, text: '이 날 등록된 영양제가 없어요. 플랜을 추가해서 건강 루틴을 만들어보세요!' }
     }
-
     const checkedCount = dailySummary.taken
     const totalCount = dailySummary.total
     if (checkedCount === 0) {
-      const missingList = formatSlotList(dailySummary.missingSlots)
-      return {
-        tone: 'warn' as const,
-        text: `오늘 영양제를 안드셨어요🥺 ${(missingList || '건강 루틴')} 꾸준히 챙겨볼까요?`,
-      }
+      const missingList = dailySummary.missingSlots.join(', ')
+      return { tone: 'warn' as const, text: `오늘 영양제를 안드셨어요🥺 ${missingList || '아침'}부터 천천히 챙겨볼까요?` }
     }
-
     if (checkedCount === totalCount) {
-      return {
-        tone: 'celebrate' as const,
-        text: `오늘도 건강한 하루! 모든 영양제 체크 완료!`,
-      }
+      return { tone: 'celebrate' as const, text: `오늘도 건강한 하루! 모든 영양제 체크 완료!` }
     }
-
-    const missingList = formatSlotList(dailySummary.missingSlots)
-    return {
-      tone: 'encourage' as const,
-      text: `${missingList || '건강 루틴!'} 영양제를 꾸준히 챙겨볼까요?`,
-    }
+    const firstMissing = dailySummary.missingPlans[0]
+    const firstLabel = firstMissing ? slotLabel(firstMissing.time_slot) : null
+    const missingList = dailySummary.missingSlots.join(', ')
+    return { tone: 'encourage' as const, text: firstLabel ? `아직 ${missingList} 영양제를 안드셨어요! 오늘도 파이팅!` : `아직 ${missingList} 영양제를 안드셨어요! 오늘도 파이팅!` }
   }, [daily, dailySummary, nickLabel, selectedDay])
 
   const load = async () => {
@@ -203,7 +175,6 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
                         className={`chkbox ${dp.taken ? 'on' : ''}`}
                         disabled={isFutureDate(selectedDay)}
                         onClick={async () => {
-                          // optimistic toggle
                           setDaily(prev => prev ? prev.map(p => p.plan_id === dp.plan_id ? { ...p, taken: !dp.taken } : p) : prev)
                           await nutritionAPI.setTaken(dp.plan_id, selectedDay!, !dp.taken)
                           await load()
@@ -239,7 +210,7 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
                       </div>
                     </div>
                   ))}
-                {(!daily || daily.length === 0) && <div className="muted">등록된 영양제가 없어요. 상단에서 등록해 보세요.</div>}
+                  {(!daily || daily.length === 0) && <div className="muted">등록된 영양제가 없어요. 상단에서 등록해 보세요.</div>}
                 </div>
               </div>
             )}
@@ -256,10 +227,9 @@ export default function Nutrition({ isLoggedIn, onRequireLogin, userName }: Prop
       )}
 
       {showRecommender && (
-        <SupplementRecommenderModal
-          onClose={() => setShowRecommender(false)}
-        />
+        <SupplementRecommenderModal onClose={() => setShowRecommender(false)} />
       )}
     </section>
   )
 }
+
