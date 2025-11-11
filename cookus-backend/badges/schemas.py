@@ -4,7 +4,7 @@ from typing import Literal, Optional, List
 class EarnedBadge(BaseModel):
     badge_id: int
     name: str
-    category: Literal["contest", "recipe", "goal"]
+    category: str
     earned_at: str
     is_active: bool
 
@@ -16,7 +16,7 @@ class Progress(BaseModel):
 class LockedBadge(BaseModel):
     badge_id: int
     name: str
-    category: Literal["contest", "recipe", "goal"]
+    category: str
     progress: Optional[Progress] = None
 
 class BadgeOverview(BaseModel):

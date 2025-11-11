@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from notifications.poller import start_poller, stop_poller
+from badges.automation import start_badge_automation, stop_badge_automation
 
 from auth import router as auth_router
 from core import settings
@@ -25,11 +26,13 @@ from notifications.router import router as notifications_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    start_badge_automation()
     await start_poller()
     try:
         yield
     finally:
         await stop_poller()
+        stop_badge_automation()
 
 def create_app() -> FastAPI:
     app = FastAPI(title="CookUS API", version="1.0", lifespan=lifespan)

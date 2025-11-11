@@ -3,7 +3,8 @@ import { authAPI } from '../api/auth'
 import type { User } from '../api/auth'
 import EditProfileDialog from '../components/EditProfileDialog'
 import BadgeGallery from '../components/badges/BadgeGallery'
-import { badgeCatalog, userBadges, userProgress } from '../mocks/badges'
+import { badgeCatalog } from '../data/badges'
+import { badgesAPI, type BadgeOverview } from '../api/badges'
 import './MyPage.css'
 
 type Props = { isLoggedIn: boolean; onRequireLogin: () => void }
@@ -15,6 +16,9 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [activeTab, setActiveTab] = useState<'profile' | 'badges'>('profile')
+  const [badgeOverview, setBadgeOverview] = useState<BadgeOverview | null>(null)
+  const [badgeLoading, setBadgeLoading] = useState(false)
+  const [badgeError, setBadgeError] = useState<string | null>(null)
 
   const fetchMe = async () => {
     setLoading(true); setError(null)
@@ -54,10 +58,30 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
     )
   }
 
+  const fetchBadges = async () => {
+    setBadgeError(null)
+    try {
+      setBadgeLoading(true)
+      setBadgeOverview(await badgesAPI.overview())
+    } catch {
+      setBadgeOverview(null)
+      setBadgeError('뱃지를 불러오지 못했어요.')
+    } finally {
+      setBadgeLoading(false)
+    }
+  }
+
 
   useEffect(() => {
-    if (isLoggedIn) fetchMe()
-    else setMe(null)
+    if (isLoggedIn) {
+      fetchMe()
+      fetchBadges()
+    } else {
+      setMe(null)
+      setBadgeOverview(null)
+      setBadgeError(null)
+      setBadgeLoading(false)
+    }
   }, [isLoggedIn])
 
   if (!isLoggedIn) {
@@ -125,12 +149,14 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
       {activeTab === 'badges' && (
         <div className="card my-card">
           <h3 style={{marginTop:0}}>나의 뱃지</h3>
-          {loading && <div className="note">불러오는 중…</div>}
-          {error && <div className="error">{error}</div>}
-          <BadgesSection />
+          {badgeLoading && <div className="note">뱃지를 불러오는 중...</div>}
+          {badgeError && <div className="error">{badgeError}</div>}
+          {!badgeLoading && !badgeError && !badgeOverview && (
+            <div className="note">아직 획득한 배지가 없어요.</div>
+          )}
+          {badgeOverview && <BadgeGallery catalog={badgeCatalog} overview={badgeOverview} />}
         </div>
       )}
-
       {showEdit && me && (
         <EditProfileDialog
           me={me}
@@ -142,12 +168,6 @@ export default function MyPage({ isLoggedIn, onRequireLogin }: Props) {
         <DeleteAccountDialog onClose={()=>setShowDelete(false)} />
       )}
     </section>
-  )
-}
-
-function BadgesSection(){
-  return (
-    <BadgeGallery catalog={badgeCatalog} owned={userBadges} progress={userProgress} />
   )
 }
 

@@ -3,8 +3,11 @@ from typing import Any, Dict, List, Tuple
 from core.database import get_conn  # <= 네 프로젝트의 DB 헬퍼
 
 EARNED_SQL = """
-SELECT b.badge_id, b.name_ko AS name, b.category,
-       ub.awarded_at, (ub.is_active = 1) AS is_active
+SELECT b.badge_id,
+       b.name_ko AS name,
+       b.category,
+       ub.awarded_at AS earned_at,
+       (ub.is_active = 1) AS is_active
 FROM user_badges ub
 JOIN badge_info b ON b.badge_id = ub.badge_id
 WHERE ub.user_id = %s
@@ -55,4 +58,3 @@ def award_if_absent(user_id: str, badge_id: int) -> bool:
             VALUES (%s, %s, NOW(), 0)
         """, (user_id, badge_id))
         return cur.rowcount == 1  # 1이면 새로 지급됨
-
