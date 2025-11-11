@@ -8,6 +8,7 @@ import UserCookPostsModal from './UserCookPostsModal'
 import { formatCookUserDisplay, formatCookUserHandle } from '../utils/cooktest'
 
 type FilterView = 'all' | 'liked' | 'mine'
+type SortOrder = 'latest' | 'likes'
 
 type Props = {
   eventId: number
@@ -37,6 +38,7 @@ export default function CookTestDetailModal({
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
   const [filterView, setFilterView] = useState<FilterView>('all')
   const [showPosts, setShowPosts] = useState(true)
+  const [sortOrder, setSortOrder] = useState<SortOrder>('latest')
   const [userPostsModal, setUserPostsModal] = useState<{ userId: number | string; userName?: string } | null>(null)
   const isEventClosed = useMemo(() => {
     if (!event) return false
@@ -46,12 +48,22 @@ export default function CookTestDetailModal({
   }, [event])
 
   const sortedPosts = useMemo(() => {
-    const base = [...posts].sort((a, b) => {
-      if (b.likes !== a.likes) return b.likes - a.likes
-      return a.post_id - b.post_id
-    })
-    return isEventClosed ? base : posts
-  }, [posts, isEventClosed])
+    const base = [...posts]
+    if (sortOrder === 'likes') {
+      base.sort((a, b) => {
+        if ((b.likes ?? 0) !== (a.likes ?? 0)) return (b.likes ?? 0) - (a.likes ?? 0)
+        return a.post_id - b.post_id
+      })
+    } else {
+      base.sort((a, b) => {
+        const aTime = new Date(a.created_at).getTime()
+        const bTime = new Date(b.created_at).getTime()
+        if (Number.isFinite(aTime) && Number.isFinite(bTime)) return bTime - aTime
+        return a.post_id - b.post_id
+      })
+    }
+    return base
+  }, [posts, sortOrder])
 
   const uniquePodiumEntries = useMemo(() => {
     if (!isEventClosed) return []
@@ -332,6 +344,13 @@ export default function CookTestDetailModal({
                   <option value="all">전체</option>
                   <option value="liked">내 좋아요</option>
                   <option value="mine">내 글</option>
+                </select>
+              </label>
+              <label className="cooktest-view-select">
+                <span>정렬</span>
+                <select value={sortOrder} onChange={e => setSortOrder(e.target.value as SortOrder)}>
+                  <option value="latest">최신순</option>
+                  <option value="likes">좋아요순</option>
                 </select>
               </label>
               {filterView !== 'all' && <div className="hint small">조건에 맞는 게시글만 표시돼요.</div>}
