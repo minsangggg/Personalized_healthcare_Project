@@ -1,11 +1,18 @@
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="allow",
+    )
 
     app_name: str = "Personalized Healthcare API"
     cors_origins: List[str] = Field(
@@ -23,14 +30,14 @@ class Settings(BaseSettings):
     db_name: str = Field(default="lgup3", env="DB_NAME")
 
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    youtube_api_key: Optional[str] = Field(default=None, env="YOUTUBE_API_KEY")
+    frontend_origin: Optional[str] = Field(default=None, env="FRONTEND_ORIGIN")
+    google_application_credentials: Optional[str] = Field(
+        default=None, env="GOOGLE_APPLICATION_CREDENTIALS"
+    )
 
     smtp_sender: str = Field(default="parkss6468@gmail.com", env="SMTP_SENDER")
     smtp_app_password: str = Field(default="brlr fsrn eceu oukm", env="SMTP_APP_PASSWORD")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 @lru_cache()
 def get_settings() -> Settings:
