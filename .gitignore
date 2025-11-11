@@ -229,3 +229,4 @@ tsserver
 database/data
 *.example
 *.html
+*.jpg
