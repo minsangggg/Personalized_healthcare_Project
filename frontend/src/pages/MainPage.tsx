@@ -12,6 +12,7 @@ import { useAuth } from "./AuthContext";
 import SplashScreen from "./SplashScreen";
 import { apiFetch } from "../api/client";
 import VideoBackgroundLayout from "../components/VideoBackgroundLayout";
+import { parseIngredientList, parseStepList } from "../utils/recipeText";
 
 type IngredientItem = {
   name: string;
@@ -25,6 +26,7 @@ type RecommendationItem = {
   level_nm?: string;
   cooking_time?: string;
   step_text?: string;
+  ingredient_full?: string;
   selected?: boolean;
 };
 
@@ -48,19 +50,20 @@ const TEXT = {
     countPrefix: "\uC7AC\uB8CC ",
     toggle: "\uB0B4 \uB0C9\uC7A5\uACE0 \uC7AC\uB8CC \uBCF4\uAE30",
     empty: "\uB4F1\uB85D\uB41C \uC7AC\uB8CC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
-    save: "\uC11C\uBC84\uC5D0 \uC800\uC7A5",
+    save: "\uC800\uC7A5",
     delete: "\uC0AD\uC81C",
   },
   buttons: {
     add: "\uC7AC\uB8CC \uCD94\uAC00",
     recommend: "\uB808\uC2DC\uD53C \uCD94\uCC9C \uBC1B\uAE30",
     reset: "\uC7AC\uB8CC \uCD08\uAE30\uD654",
+    history: "\uC9C0\uB09C \uCD94\uCC9C \uBCF4\uAE30",
+    receiptUpload: "\uC601\uC218\uC99D \uC5C5\uB85C\uB4DC",
   },
   loading: "\uCD94\uCC9C\uC744 \uC900\uBE44\uD558\uACE0 \uC788\uC2B5\uB2C8\uB2E4...",
   footer: {
     title: "2025 \uB808\uC2DC\uD53C \uB9C8\uCF13",
     about: "\uC18C\uAC1C",
-    notice: "\uACF5\uC9C0\uC0AC\uD56D",
     faq: "FAQ",
     company: "\uB808\uC2DC\uD53C \uB9C8\uCF13 | \uB300\uD45C\uC790 \uD64D\uAE38\uB3D9",
     contact: "123-45-6789 (\uC0AC\uC5C5\uC790\uC815\uBCF4\uD655\uC778) | +82-1234-4567",
@@ -86,7 +89,9 @@ const TEXT = {
     difficulty: "\uB09C\uC774\uB3C4",
     infoNone: "\uC815\uBCF4 \uC5C6\uC74C",
     cookingTime: "\uC870\uB9AC \uC2DC\uAC04:",
+    ingredients: "[\uD544\uC694 \uC7AC\uB8CC]",
     method: "\uC870\uB9AC \uBC29\uBC95:",
+    steps: "[\uC870\uB9AC \uC21C\uC11C]",
     methodNone: "\uC870\uB9AC \uBC29\uBC95 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
     close: "\uB2EB\uAE30",
     youtube: "\uC601\uC0C1 \uBCF4\uAE30",
@@ -115,7 +120,22 @@ export default function MainPage() {
   const [ingredients, setIngredients] = useState<IngredientItem[]>([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [recommended, setRecommended] = useState<RecommendationItem[]>([]);
+const STORAGE_LAST_RECOMMEND = "cookus:last-recommended";
+const [recommended, setRecommended] = useState<RecommendationItem[]>([]);
+const [lastRecommended, setLastRecommended] = useState<RecommendationItem[]>(() => {
+  try {
+    const raw = localStorage.getItem(STORAGE_LAST_RECOMMEND);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return [];
+});
+  const [userLevelMessage, setUserLevelMessage] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<RecommendationItem | null>(null);
   const [showFridge, setShowFridge] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -123,8 +143,16 @@ export default function MainPage() {
   const [loading, setLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoLoading, setVideoLoading] = useState(false);
+const [videoUrl, setVideoUrl] = useState<string | null>(null);
+const [videoLoading, setVideoLoading] = useState(false);
+const [cleanedSteps, setCleanedSteps] = useState<string[]>([]);
+
+const ingredientList = useMemo(
+  () => parseIngredientList(selectedRecipe?.ingredient_full),
+  [selectedRecipe?.ingredient_full]
+);
+const stepList = useMemo(() => parseStepList(selectedRecipe?.step_text), [selectedRecipe?.step_text]);
+const stepsToRender = cleanedSteps.length ? cleanedSteps : stepList;
 
   const { user, logout } = useAuth();
   const userId = useMemo(() => user?.id ?? localStorage.getItem("currentUser"), [user?.id]);
@@ -165,6 +193,36 @@ export default function MainPage() {
         if (cached) setUserName(cached);
       });
   }, [userId]);
+
+  useEffect(() => {
+    if (!selectedRecipe?.step_text) {
+      setCleanedSteps([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCleanedSteps([]);
+    apiFetch<{ steps?: string[] }>("/clean_recipe_steps", {
+      method: "POST",
+      body: JSON.stringify({ text: selectedRecipe.step_text }),
+    })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        const normalized = Array.isArray(data.steps) ? data.steps.filter((item) => typeof item === "string") : [];
+        setCleanedSteps(normalized.map((item) => item.trim()).filter(Boolean));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCleanedSteps([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRecipe?.step_text]);
 
   const persistIngredients = (items: IngredientItem[]) => {
     const key = userId ? `ingredients_${userId}` : "ingredients";
@@ -281,9 +339,13 @@ export default function MainPage() {
       );
       const list = (data.recommendations ?? []).map((item) => ({ ...item, selected: false }));
       setRecommended(list);
+      setLastRecommended(list);
+      localStorage.setItem(STORAGE_LAST_RECOMMEND, JSON.stringify(list));
       setShowRecommendModal(true);
       if (data.user_level) {
-        alert(`${TEXT.alerts.userLevelPrefix}${data.user_level}${TEXT.alerts.userLevelSuffix}`);
+        setUserLevelMessage(`${TEXT.alerts.userLevelPrefix}${data.user_level}${TEXT.alerts.userLevelSuffix}`);
+      } else {
+        setUserLevelMessage(null);
       }
     } catch (error) {
       console.error("Failed to load recommendations:", error);
@@ -322,6 +384,8 @@ export default function MainPage() {
       );
       alert(TEXT.alerts.registerSuccess);
       setShowRecommendModal(false);
+      setUserLevelMessage(null);
+      setRecommended([]);
     } catch (error) {
       console.error("Failed to register recipes:", error);
       alert(TEXT.alerts.registerFail);
@@ -334,28 +398,135 @@ export default function MainPage() {
     }
   };
 
-  const handleWatchVideo = async () => {
+const RECIPE_SUFFIXES = ["전", "탕", "찌개", "볶음", "조림", "구이", "무침", "덮밥", "볶이", "국", "찜", "죽", "샐러드", "파스타"];
+
+const extractIngredientKeywords = (text?: string): string[] => {
+  if (!text) {
+    return [];
+  }
+  try {
+    const sanitized = text.replace(/'/g, '"');
+    const parsed = JSON.parse(sanitized);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    const keywords: string[] = [];
+    parsed.forEach((item) => {
+      if (typeof item !== "string") return;
+      const match = item.match(/[가-힣]+/);
+      if (match) {
+        const token = match[0];
+        if (token && !keywords.includes(token)) {
+          keywords.push(token);
+        }
+      }
+    });
+    return keywords;
+  } catch {
+    return [];
+  }
+};
+
+const buildVideoSearchData = (
+  title: string,
+  ingredientFull?: string
+): { queries: string[]; syllables: string[]; allowed: string[] } => {
+  const normalized = title.trim();
+  const noSpace = normalized.replace(/\s+/g, "");
+  const baseQueries = new Set<string>([normalized, noSpace]);
+  const syllableSet = new Set<string>(Array.from(noSpace));
+  const allowedWords = new Set<string>();
+
+  const suffix = RECIPE_SUFFIXES.find((word) => noSpace.endsWith(word)) ?? "";
+  const ingredients = extractIngredientKeywords(ingredientFull);
+  ingredients.forEach((word) => {
+    if (word) allowedWords.add(word);
+  });
+  RECIPE_SUFFIXES.forEach((word) => allowedWords.add(word));
+
+  const titleWords = normalized.match(/[가-힣]+/g) ?? [];
+  titleWords.forEach((word) => allowedWords.add(word));
+
+  if (suffix && ingredients.length >= 2) {
+    const first = ingredients[0];
+    const second = ingredients[1];
+    [
+      `${first}${second}${suffix}`,
+      `${second}${first}${suffix}`,
+      `${first} ${second} ${suffix}`,
+      `${second} ${first} ${suffix}`,
+    ].forEach((query) => baseQueries.add(query.trim()));
+    syllableSet.add(first.charAt(0));
+    syllableSet.add(second.charAt(0));
+    syllableSet.add(suffix.charAt(0));
+  }
+
+  const queries = new Set<string>();
+  baseQueries.forEach((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    queries.add(`${trimmed} 레시피`.trim());
+    const compact = trimmed.replace(/\s+/g, "");
+    if (compact) {
+      queries.add(`${compact}레시피`);
+    }
+  });
+
+  return {
+    queries: Array.from(queries).filter(Boolean),
+    syllables: Array.from(syllableSet).filter(Boolean),
+    allowed: Array.from(allowedWords).filter(Boolean),
+  };
+};
+
+const handleWatchVideo = async () => {
     const title = selectedRecipe?.recipe_nm_ko?.trim();
     if (!title) {
       alert(TEXT.alerts.videoTitleMissing);
       return;
     }
+    const { queries: candidates, syllables, allowed } = buildVideoSearchData(title, selectedRecipe?.ingredient_full);
     setVideoLoading(true);
     setVideoUrl(null);
-    try {
-      const encoded = encodeURIComponent(`${title} \uC1FC\uCE20`);
-      const data = await apiFetch<{ embed_url?: string }>(`/youtube_shorts?q=${encoded}`);
-      if (data.embed_url) {
-        setVideoUrl(data.embed_url);
-      } else {
-        alert(TEXT.alerts.videoFetchFail);
+
+    let success = false;
+    for (const query of candidates) {
+      try {
+        const params = new URLSearchParams();
+        params.set("q", query);
+        if (syllables.length) {
+          params.set("syllables", syllables.join(","));
+        }
+        if (allowed.length) {
+          params.set("allowed", allowed.join(","));
+        }
+        const data = await apiFetch<{ embed_url?: string }>(`/youtube_shorts?${params.toString()}`);
+        if (data.embed_url) {
+          setVideoUrl(data.embed_url);
+          success = true;
+          break;
+        }
+      } catch (error) {
+        console.error("Failed to fetch video:", error);
       }
-    } catch (error) {
-      console.error("Failed to fetch video:", error);
-      alert(TEXT.alerts.videoFetchFail);
-    } finally {
-      setVideoLoading(false);
     }
+
+    if (!success) {
+      alert(TEXT.alerts.videoFetchFail);
+    }
+    setVideoLoading(false);
+};
+
+  const handleShowLastRecommendations = () => {
+    if (lastRecommended.length === 0) {
+      return;
+    }
+    const resetSelections = lastRecommended.map((item) => ({ ...item, selected: false }));
+    setRecommended(resetSelections);
+    setShowRecommendModal(true);
+    setUserLevelMessage(null);
   };
 
   if (showSplash) {
@@ -469,6 +640,16 @@ export default function MainPage() {
         )}
 
         <div className="mt-auto space-y-6 pb-2">
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleShowLastRecommendations}
+              disabled={lastRecommended.length === 0}
+              className="w-full max-w-[420px] rounded-2xl border border-[#E7C9A1] bg-white/80 px-3 py-3 text-sm font-semibold text-[#6B2E00] shadow disabled:opacity-40"
+            >
+              {TEXT.buttons.history}
+            </button>
+          </div>
           <div className="grid grid-cols-3 gap-3 text-center text-sm font-semibold">
             <button
               type="button"
@@ -492,6 +673,14 @@ export default function MainPage() {
               {TEXT.buttons.reset}
             </button>
           </div>
+          <div className="flex justify-center">
+            <Link
+              to="/receipt-upload"
+              className="w-full max-w-[420px] rounded-2xl bg-[#FFB15E] px-4 py-3 text-center text-base font-bold text-white shadow hover:bg-[#ff9d3d] transition"
+            >
+              {TEXT.buttons.receiptUpload}
+            </Link>
+          </div>
 
           {loading && (
             <div className="text-center text-sm font-semibold text-[#6B2E00]">
@@ -502,9 +691,12 @@ export default function MainPage() {
           <footer className="rounded-3xl bg-[#F6E8C9]/90 px-6 py-6 text-center text-xs text-[#6B2E00] shadow-inner">
             <p className="text-sm font-semibold">{TEXT.footer.title}</p>
             <p className="mt-3 flex justify-center gap-4 font-medium">
-              <span>{TEXT.footer.about}</span>
-              <span>{TEXT.footer.notice}</span>
-              <span>{TEXT.footer.faq}</span>
+              <Link to="/about" className="hover:text-[#8B4000]">
+                {TEXT.footer.about}
+              </Link>
+              <Link to="/faq" className="underline underline-offset-4 hover:text-[#8B4000]">
+                {TEXT.footer.faq}
+              </Link>
             </p>
             <p className="mt-3">{TEXT.footer.company}</p>
             <p>{TEXT.footer.contact}</p>
@@ -607,7 +799,11 @@ export default function MainPage() {
           <div className="relative w-[400px] max-h-[90vh] overflow-y-auto rounded-3xl bg-[#FFF2D9] p-6 shadow-2xl">
             <button
               type="button"
-              onClick={() => setShowRecommendModal(false)}
+              onClick={() => {
+                setShowRecommendModal(false);
+                setUserLevelMessage(null);
+                setRecommended([]);
+              }}
               className="absolute right-6 top-5 text-lg text-[#6B2E00]"
             >
               &times;
@@ -615,6 +811,11 @@ export default function MainPage() {
             <h2 className="mb-5 text-center text-xl font-extrabold text-[#6B2E00]">
               {TEXT.recommendModal.title}
             </h2>
+            {userLevelMessage && (
+              <p className="mb-4 rounded-2xl bg-white/70 px-4 py-2 text-center text-sm text-[#6B2E00] shadow-inner">
+                {userLevelMessage}
+              </p>
+            )}
             <div className="grid grid-cols-1 gap-4">
               {recommended.length === 0 && (
                 <p className="text-center text-sm text-[#6B2E00]">
@@ -667,7 +868,11 @@ export default function MainPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowRecommendModal(false)}
+                  onClick={() => {
+                    setShowRecommendModal(false);
+                    setUserLevelMessage(null);
+                    setRecommended([]);
+                  }}
                   className="rounded-xl bg-white px-5 py-2 text-[#6B2E00] shadow"
                 >
                   {TEXT.recommendModal.close}
@@ -691,21 +896,38 @@ export default function MainPage() {
             <h2 className="mb-3 text-center text-lg font-extrabold text-[#6B2E00]">
               {selectedRecipe.recipe_nm_ko ?? TEXT.recommendModal.title}
             </h2>
-            <p className="mb-2 text-sm text-[#6B2E00]/80">
-              <b>{TEXT.detailModal.difficulty}</b>{" "}
-              {selectedRecipe.level_nm ?? TEXT.detailModal.infoNone}
-            </p>
-            <p className="mb-2 text-sm text-[#6B2E00]/80">
-              <b>{TEXT.detailModal.cookingTime}</b>{" "}
-              {selectedRecipe.cooking_time ?? TEXT.detailModal.infoNone}
-            </p>
-            <p className="text-sm text-[#6B2E00]/80 whitespace-pre-line">
-              <b>{TEXT.detailModal.method}</b>{" "}
-              {selectedRecipe.step_text
-                ?.replace(/\r\n/g, "\n")
-                .replace(/\\n/g, "\n")
-                .trim() || TEXT.detailModal.methodNone}
-            </p>
+            <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#6B2E00]/80">
+              <span>
+                <b>{TEXT.detailModal.cookingTime}</b>{" "}
+                {selectedRecipe.cooking_time ?? TEXT.detailModal.infoNone}
+              </span>
+              <span>
+                <b>{TEXT.detailModal.difficulty}</b>{" "}
+                {selectedRecipe.level_nm ?? TEXT.detailModal.infoNone}
+              </span>
+            </div>
+            {ingredientList.length > 0 && (
+              <>
+                <p className="mt-3 text-sm font-semibold text-[#6B2E00]">{TEXT.detailModal.ingredients}</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#6B2E00]/80">
+                  {ingredientList.map((item, index) => (
+                    <li key={`ingredient-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {stepsToRender.length > 0 ? (
+              <>
+                <p className="mt-4 text-sm font-semibold text-[#6B2E00]">{TEXT.detailModal.steps}</p>
+                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-[#6B2E00]/80">
+                  {stepsToRender.map((step, index) => (
+                    <li key={`step-${index}`}>{step}</li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p className="text-sm text-[#6B2E00]/80">{TEXT.detailModal.methodNone}</p>
+            )}
             <div className="mt-4 flex justify-center gap-3">
               <button
                 type="button"

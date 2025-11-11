@@ -8,6 +8,7 @@ import { FiPlus, FiTrash2 } from "react-icons/fi";
 import { useAuth } from "./AuthContext";
 import { apiFetch } from "../api/client";
 import VideoBackgroundLayout from "../components/VideoBackgroundLayout";
+import { parseIngredientList, parseStepList } from "../utils/recipeText";
 
 type StoredRecipe = {
   recipe_id?: string | number;
@@ -17,6 +18,7 @@ type StoredRecipe = {
   level_nm?: string;
   cooking_time?: string;
   step_text?: string;
+  ingredient_full?: string;
   action?: number;
 };
 
@@ -49,19 +51,145 @@ const TEXT = {
     steps: "조리 순서:",
     close: "닫기",
     noInfo: "조리 순서 정보가 없습니다.",
+    ingredients: "[필요 재료]",
+    stepsLabel: "[조리 순서]",
+    video: "영상보기",
+    loadingVideo: "동영상 불러오는 중...",
+    videoFail: "영상을 불러오지 못했습니다.",
+    videoTitleMissing: "영상 제목이 없습니다.",
   },
+};
+
+const RECIPE_SUFFIXES = [
+  "전",
+  "탕",
+  "찌개",
+  "볶음",
+  "조림",
+  "구이",
+  "무침",
+  "덮밥",
+  "볶이",
+  "국",
+  "찜",
+  "죽",
+  "샐러드",
+  "파스타",
+];
+
+const extractIngredientKeywords = (text?: string): string[] => {
+  if (!text) {
+    return [];
+  }
+  try {
+    const sanitized = text.replace(/'/g, "\"");
+    const parsed = JSON.parse(sanitized);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    const keywords: string[] = [];
+    parsed.forEach((item) => {
+      if (typeof item !== "string") return;
+      const match = item.match(/[가-힣]+/);
+      if (match) {
+        const token = match[0];
+        if (token && !keywords.includes(token)) {
+          keywords.push(token);
+        }
+      }
+    });
+    return keywords;
+  } catch {
+    return [];
+  }
+};
+
+const buildVideoSearchData = (
+  title: string,
+  ingredientFull?: string,
+): { queries: string[]; syllables: string[]; allowed: string[] } => {
+  const normalized = title.trim();
+  const noSpace = normalized.replace(/\s+/g, "");
+  const baseQueries = new Set<string>([normalized, noSpace]);
+  const syllableSet = new Set<string>(Array.from(noSpace));
+  const allowedWords = new Set<string>();
+
+  const suffix = RECIPE_SUFFIXES.find((word) => noSpace.endsWith(word)) ?? "";
+  const ingredients = extractIngredientKeywords(ingredientFull);
+  ingredients.forEach((word) => {
+    if (word) allowedWords.add(word);
+  });
+  RECIPE_SUFFIXES.forEach((word) => allowedWords.add(word));
+
+  const titleWords = normalized.match(/[가-힣]+/g) ?? [];
+  titleWords.forEach((word) => allowedWords.add(word));
+
+  if (suffix && ingredients.length >= 2) {
+    const first = ingredients[0];
+    const second = ingredients[1];
+    [
+      `${first}${second}${suffix}`,
+      `${second}${first}${suffix}`,
+      `${first} ${second} ${suffix}`,
+      `${second} ${first} ${suffix}`,
+    ].forEach((query) => baseQueries.add(query.trim()));
+    syllableSet.add(first.charAt(0));
+    syllableSet.add(second.charAt(0));
+    syllableSet.add(suffix.charAt(0));
+  }
+
+  const queries = new Set<string>();
+  baseQueries.forEach((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+    queries.add(`${trimmed} 레시피`.trim());
+    const compact = trimmed.replace(/\s+/g, "");
+    if (compact) {
+      queries.add(`${compact}레시피`);
+    }
+  });
+
+  return {
+    queries: Array.from(queries).filter(Boolean),
+    syllables: Array.from(syllableSet).filter(Boolean),
+    allowed: Array.from(allowedWords).filter(Boolean),
+  };
 };
 
 export default function CookCalendar() {
   const [value, setValue] = useState<Date | [Date, Date]>(new Date());
   const [recipes, setRecipes] = useState<StoredRecipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<StoredRecipe | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [cleanedSteps, setCleanedSteps] = useState<string[]>([]);
+  const ingredientList = useMemo(
+    () => parseIngredientList(selectedRecipe?.ingredient_full),
+    [selectedRecipe?.ingredient_full]
+  );
+  const fallbackSteps = useMemo(() => parseStepList(selectedRecipe?.step_text), [selectedRecipe?.step_text]);
+  const stepsToRender = cleanedSteps.length ? cleanedSteps : fallbackSteps;
+
   const { user, logout } = useAuth();
   const UserCircleIcon = FaUserCircle as ComponentType<{ className?: string }>;
   const PlusIcon = FiPlus as ComponentType<{ className?: string }>;
   const TrashIcon = FiTrash2 as ComponentType<{ className?: string }>;
 
   const userId = useMemo(() => user?.id ?? localStorage.getItem("currentUser"), [user?.id]);
+
+  const openRecipeModal = (recipe: StoredRecipe) => {
+    setSelectedRecipe(recipe);
+    setVideoUrl(null);
+    setVideoLoading(false);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedRecipe(null);
+    setVideoUrl(null);
+    setVideoLoading(false);
+  };
 
   useEffect(() => {
     const fetchRecipes = async () => {
@@ -78,6 +206,36 @@ export default function CookCalendar() {
 
     fetchRecipes();
   }, [userId]);
+
+  useEffect(() => {
+    if (!selectedRecipe?.step_text) {
+      setCleanedSteps([]);
+      return;
+    }
+
+    let cancelled = false;
+    setCleanedSteps([]);
+    apiFetch<{ steps?: string[] }>("/clean_recipe_steps", {
+      method: "POST",
+      body: JSON.stringify({ text: selectedRecipe.step_text }),
+    })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        const normalized = Array.isArray(data.steps) ? data.steps.filter((item) => typeof item === "string") : [];
+        setCleanedSteps(normalized.map((item) => item.trim()).filter(Boolean));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCleanedSteps([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRecipe?.step_text]);
 
   const selectedDate = Array.isArray(value) ? value[0] : value;
   const formattedDate = selectedDate.toLocaleDateString("sv-SE");
@@ -116,13 +274,14 @@ export default function CookCalendar() {
     }
   };
 
+
 const handleDeleteRecipe = async (recipe: StoredRecipe) => {
   if (!userId) {
-    alert("�α��� �� �̿��� �ּ���.");
+    alert("로그인 후 이용해 주세요.");
     return;
   }
   if (recipe.recommend_id == null || recipe.recipe_id == null) {
-    alert("������ ������ �ٽ� �ҷ��� �ּ���.");
+    alert("추천 정보를 다시 불러와 주세요.");
     return;
   }
 
@@ -156,9 +315,50 @@ const handleDeleteRecipe = async (recipe: StoredRecipe) => {
     });
   } catch (error) {
     console.error("Failed to delete selected recipe:", error);
-    alert("������ �������� ���߽��ϴ�.");
+    alert("선택한 레시피를 삭제하지 못했습니다.");
   }
 };
+
+
+const handleWatchVideo = async () => {
+  const title = selectedRecipe?.recipe_nm_ko?.trim();
+  if (!title) {
+    alert(TEXT.modal.videoTitleMissing);
+    return;
+  }
+
+  const { queries, syllables, allowed } = buildVideoSearchData(title, selectedRecipe?.ingredient_full);
+  setVideoLoading(true);
+  setVideoUrl(null);
+
+  let success = false;
+  for (const query of queries) {
+    try {
+      const params = new URLSearchParams();
+      params.set("q", query);
+      if (syllables.length) {
+        params.set("syllables", syllables.join(","));
+      }
+      if (allowed.length) {
+        params.set("allowed", allowed.join(","));
+      }
+      const data = await apiFetch<{ embed_url?: string }>(`/youtube_shorts?${params.toString()}`);
+      if (data.embed_url) {
+        setVideoUrl(data.embed_url);
+        success = true;
+        break;
+      }
+    } catch (error) {
+      console.error("Failed to fetch video:", error);
+    }
+  }
+
+  if (!success) {
+    alert(TEXT.modal.videoFail);
+  }
+  setVideoLoading(false);
+};
+
 
   return (
     <>
@@ -249,13 +449,14 @@ const handleDeleteRecipe = async (recipe: StoredRecipe) => {
                 locale="ko-KR"
                 className="cook-calendar w-full text-center rounded-2xl text-white"
                 tileClassName={({ date }) => {
-                  const today = new Date();
-                  const todayFormatted = today.toISOString().split("T")[0];
-                  const formatted = date.toISOString().split("T")[0];
-                  const selectedFormatted = selectedDate.toISOString().split("T")[0];
+                  const isSameDay = (left: Date, right: Date) =>
+                    left.getFullYear() === right.getFullYear() &&
+                    left.getMonth() === right.getMonth() &&
+                    left.getDate() === right.getDate();
 
-                  const isToday = formatted === todayFormatted;
-                  const isSelected = formatted === selectedFormatted;
+                  const today = new Date();
+                  const isToday = isSameDay(date, today);
+                  const isSelected = isSameDay(date, selectedDate);
 
                   const classes = [
                     "py-3",
@@ -338,7 +539,7 @@ const handleDeleteRecipe = async (recipe: StoredRecipe) => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedRecipe(recipe)}
+                        onClick={() => openRecipeModal(recipe)}
                         className="ml-auto rounded-xl bg-[#F2994A] px-4 py-2 text-sm font-semibold text-[#6B2E00] shadow hover:bg-[#f08a29]"
                       >
                         {TEXT.detailButton}
@@ -359,7 +560,7 @@ const handleDeleteRecipe = async (recipe: StoredRecipe) => {
           <div className="bg-[#FFF6E0] w-[360px] max-h-[500px] overflow-y-auto rounded-2xl shadow-xl p-5 relative">
             <button
               type="button"
-              onClick={() => setSelectedRecipe(null)}
+              onClick={handleCloseModal}
               className="absolute top-3 right-4 text-lg text-[#6B2E00]"
             >
               &times;
@@ -367,28 +568,64 @@ const handleDeleteRecipe = async (recipe: StoredRecipe) => {
             <h2 className="text-center font-extrabold text-[#6B2E00] text-lg mb-3">
               {selectedRecipe.recipe_nm_ko ?? TEXT.modal.defaultName}
             </h2>
-            <p className="text-sm text-[#6B2E00]/80 mb-1">
-              <b>{TEXT.level}:</b> {selectedRecipe.level_nm ?? TEXT.modal.noInfo}
-            </p>
-            <p className="text-sm text-[#6B2E00]/80 mb-1">
-              <b>{TEXT.cookingTime}:</b> {selectedRecipe.cooking_time ?? TEXT.modal.noInfo}
-            </p>
-            <p className="text-sm text-[#6B2E00]/80 whitespace-pre-line">
-              <b>{TEXT.modal.steps}</b>{" "}
-              {selectedRecipe.step_text
-                ?.replace(/\r\n/g, "\n")
-                .replace(/\\n/g, "\n")
-                .trim() || TEXT.modal.noInfo}
-            </p>
-            <div className="flex justify-center mt-4">
+            <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[#6B2E00]/80">
+              <span>
+                <b>{TEXT.cookingTime}:</b> {selectedRecipe.cooking_time ?? TEXT.modal.noInfo}
+              </span>
+              <span>
+                <b>{TEXT.level}:</b> {selectedRecipe.level_nm ?? TEXT.modal.noInfo}
+              </span>
+            </div>
+            {ingredientList.length > 0 && (
+              <>
+                <p className="mt-3 text-sm font-semibold text-[#6B2E00]">{TEXT.modal.ingredients}</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#6B2E00]/80">
+                  {ingredientList.map((item, index) => (
+                    <li key={`calendar-ingredient-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {stepsToRender.length > 0 ? (
+              <>
+                <p className="mt-4 text-sm font-semibold text-[#6B2E00]">{TEXT.modal.stepsLabel}</p>
+                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-[#6B2E00]/80">
+                  {stepsToRender.map((step, index) => (
+                    <li key={`calendar-step-${index}`}>{step}</li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p className="text-sm text-[#6B2E00]/80">{TEXT.modal.noInfo}</p>
+            )}
+            <div className="mt-4 flex justify-center gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedRecipe(null)}
+                onClick={handleCloseModal}
                 className="bg-[#F2994A] hover:bg-[#f08a29] text-white px-4 py-2 rounded-lg shadow"
               >
                 {TEXT.modal.close}
               </button>
+              <button
+                type="button"
+                onClick={handleWatchVideo}
+                className="rounded-lg bg-[#FF9F43] px-4 py-2 text-white shadow hover:bg-[#ff9127] transition disabled:opacity-60"
+                disabled={videoLoading}
+              >
+                {videoLoading ? TEXT.modal.loadingVideo : TEXT.modal.video}
+              </button>
             </div>
+            {videoUrl && (
+              <div className="mt-4 w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  src={videoUrl}
+                  title="추천 영상"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

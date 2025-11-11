@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* -------------------------------
+   ✅ CookUS 웹앱 레이아웃 스타일
+-------------------------------- */
+.app-shell {
+  background-color: #FFFDF6; /* 바깥 아이보리 */
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+  overflow-y: auto; /* 바깥 스크롤 허용 */
+}
+
+.app-viewport {
+  background-color: #F7D98A; /* 웹앱 본체 색상 */
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+  width: 430px;
+  min-height: 95vh;
+  overflow-y: auto; /* ✅ 내부 스크롤 가능 */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 상단바 */
+.nav-header {
+  background-color: #F7D98A;
+  border-bottom: 1px solid #D7B78A;
+  text-align: center;
+  padding: 1rem 0 0.5rem;
+  font-weight: bold;
+  color: #6B2E00;
+}
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  color: #6B2E00;
+  font-weight: 500;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+/* 푸터 */
+.footer-jeju {
+  background-color: #F7D98A; /* 본체와 동일한 노란색 */
+  text-align: center;
+  padding: 2rem 1rem;
+  border-top: 1px solid #D7B78A;
+  color: #6B2E00;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+.footer-jeju h2 {
+  font-weight: 800;
+  margin-bottom: 0.3rem;
+}
+.footer-jeju .links {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin: 0.5rem 0 1rem;
+  font-weight: 500;
+}
+.footer-jeju a:hover {
+  color: #8B4000;
+}
+.footer-jeju p {
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+}
+.footer-jeju small {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #8B4000;
+}
+
+/* -------------------------------
+   ✅ 내부 스크롤(내 냉장고 등) 전용 스타일
+   (바깥 스크롤에는 영향 없음)
+-------------------------------- */
+
+/* Tailwind로 스타일 지정한 특정 영역만 선택 */
+.scrollbox::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbox::-webkit-scrollbar-thumb {
+  background-color: #d7b78a;
+  border-radius: 9999px;
+}
+
+.scrollbox::-webkit-scrollbar-track {
+  background-color: rgba(255, 246, 224, 0.5);
+}
+
+.scrollbox:hover::-webkit-scrollbar-thumb {
+  background-color: #c49a5c;
+}
+
