@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.routers import auth, ingredients, recommendations, users
+from app.routers import auth, ingredients, recommendations, users, youtube, recipes, faq, receipts
 
 app = FastAPI(title="CookUS API")
 
@@ -27,3 +27,7 @@ app.include_router(ingredients.router)
 app.include_router(auth.router)
 app.include_router(recommendations.router)
 app.include_router(users.router)
+app.include_router(youtube.router)
+app.include_router(recipes.router)
+app.include_router(faq.router)
+app.include_router(receipts.router)
