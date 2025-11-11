@@ -1,5 +1,5 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from badge_core import handle_user_event, get_conn
+from .service import handle_user_event, get_conn
 import time
 import os
 
@@ -30,7 +30,7 @@ def check_new_boards():
 def check_recipe_recommendations():
     db = get_conn()
     with db.cursor() as cur:
-        # 1️⃣ 최근 CHECK_INTERVAL 내 새 추천 레코드 확인
+        # 1. 최근 CHECK_INTERVAL 내 새 추천 레코드 확인
         cur.execute("""
             SELECT id, recommend_date
             FROM recommend_recipe
@@ -41,14 +41,14 @@ def check_recipe_recommendations():
         if logs:
             print(f"🍽️ [Detect] New recipe recommendations: {len(logs)}")
 
-        # 2️⃣ 같은 시간대의 중복 추천(같은 id + recommend_date)은 1회만 처리
+        # 2. 같은 시간대의 중복 추천(같은 id + recommend_date)은 1회만 처리
         unique_users = {}
         for log in logs:
             key = (log["id"], log["recommend_date"])
             if key not in unique_users:
                 unique_users[key] = True
 
-        # 3️⃣ 유저별로 handle_user_event 호출
+        # 3. 유저별로 handle_user_event 호출
         for user_id, _ in unique_users.keys():
             # ✅ 핵심 수정: user_id=id (내장함수) ❌ → user_id=user_id (정상 값) ✅
             handle_user_event(user_id=user_id, event_type="recipe", db=db)
@@ -102,7 +102,7 @@ def check_new_fridge_items():
 def check_goal_progress():
     db = get_conn()
     with db.cursor() as cur:
-        # 1️⃣ 각 유저별로 완료한 요리 수(action=1) 집계
+        # 1. 각 유저별로 완료한 요리 수(action=1) 집계
         cur.execute("""
             SELECT id AS user_id, COUNT(*) AS cooked_count
             FROM selected_recipe
@@ -119,11 +119,11 @@ def check_goal_progress():
             user_id = u["user_id"]
             cooked_count = u["cooked_count"]
 
-            # 2️⃣ goal_state_cache 조회
+            # 2. goal_state_cache 조회
             cur.execute("SELECT last_goal FROM goal_state_cache WHERE user_id=%s", (user_id,))
             cached = cur.fetchone()
 
-            # 3️⃣ 최초 등록 시 캐시 초기화
+            # 3. 최초 등록 시 캐시 초기화
             if not cached:
                 print(f"🆕 [GoalInit] user={user_id}, cooked={cooked_count} 기록됨")
                 cur.execute("""
@@ -135,7 +135,7 @@ def check_goal_progress():
 
             last_goal = cached["last_goal"]
 
-            # 4️⃣ 요리 완료 수가 증가한 경우만 이벤트 발생
+            # 4. 요리 완료 수가 증가한 경우만 이벤트 발생
             if cooked_count > last_goal:
                 print(f"🎯 [GoalDetect] user={user_id} → cooked increased {last_goal} → {cooked_count}")
                 handle_user_event(user_id=user_id, event_type="goal", db=db)
@@ -160,7 +160,7 @@ def check_popular_boards():
     """
     db = get_conn()
     with db.cursor() as cur:
-        # 1️⃣ 최근 몇 초 내 새 좋아요 감지
+        # 1. 최근 몇 초 내 새 좋아요 감지
         cur.execute("""
             SELECT DISTINCT content_id
             FROM board_likes
@@ -172,9 +172,9 @@ def check_popular_boards():
             print("⚠️ No new likes detected this tick.")
             return
 
-        print(f"💖 [Detect] New likes: {len(new_likes)} recent events")
+        print(f"[Detect] New likes: {len(new_likes)} recent events")
 
-        # 2️⃣ 각 게시글별로 board.like_count 확인
+        # 2. 각 게시글별로 board.like_count 확인
         for row in new_likes:
             content_id = row["content_id"]
 
@@ -193,11 +193,11 @@ def check_popular_boards():
             like_count = board["like_count"]
             is_popular = board.get("is_popular", 0)
 
-            # 3️⃣ 이미 인기글이면 스킵
+            # 3 이미 인기글이면 스킵
             if is_popular == 1:
                 continue
 
-            # 4️⃣ 좋아요 수 기준 달성 여부 확인
+            # 4. 좋아요 수 기준 달성 여부 확인
             if like_count >= LIKE_THRESHOLD:
                 print(f"🏆 [PopularPost] content_id={content_id}, author={user_id}, likes={like_count}")
 
@@ -212,7 +212,7 @@ def check_popular_boards():
                 """, (content_id,))
                 db.commit()
 
-        print("✅ [Done] Popular post check complete.")
+        print("[Done] Popular post check complete.")
     db.close()
 
 
