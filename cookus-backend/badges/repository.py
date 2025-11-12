@@ -55,7 +55,7 @@ def award_if_absent(user_id: str, badge_id: int) -> bool:
     """유저에게 해당 뱃지가 없으면 지급하고 True, 이미 있으면 False."""
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("""
-            INSERT IGNORE INTO user_badges(user_id, badge_id, awarded_at, is_active)
-            VALUES (%s, %s, NOW(), 0)
+            INSERT IGNORE INTO user_badges(user_id, badge_id, awarded_at, is_active, is_displayed)
+            VALUES (%s, %s, NOW(), 0, 0)
         """, (user_id, badge_id))
         return cur.rowcount == 1  # 1이면 새로 지급됨

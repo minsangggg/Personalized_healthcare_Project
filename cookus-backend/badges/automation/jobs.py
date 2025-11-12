@@ -65,18 +65,45 @@ def check_cooked_recipes():
     with get_conn() as conn, conn.cursor() as cur:
       cur.execute(
         """
-        SELECT DISTINCT id AS user_id
+        SELECT id AS user_id, COUNT(*) AS cooked_total
         FROM selected_recipe
-        WHERE updated_at >= NOW() - INTERVAL %s SECOND
-          AND action = 1
+        WHERE action = 1
+        GROUP BY id
         """,
-        (CHECK_INTERVAL,),
       )
       rows = cur.fetchall()
-      if rows:
-        log.info("check_cooked_recipes: detected %d cooked events", len(rows))
+      if not rows:
+        return
+      log.info("check_cooked_recipes: evaluated cooked progress for %d users", len(rows))
+
+      cur.execute("SELECT badge_id FROM badge_info WHERE category='cooked'")
+      cooked_badges = cur.fetchall()
+      if not cooked_badges:
+        log.debug("No cooked badges configured; skipping")
+        return
+
       for row in rows:
-        handle_user_event(row["user_id"], "cooked", conn)
+        user_id = row["user_id"]
+        total_cooked = row["cooked_total"]
+        for badge in cooked_badges:
+          cur.execute(
+            """
+            SELECT current_value
+            FROM badge_process
+            WHERE user_id=%s AND badge_id=%s
+            ORDER BY process_id DESC
+            LIMIT 1
+            """,
+            (user_id, badge["badge_id"]),
+          )
+          process = cur.fetchone()
+          previous_value = process["current_value"] if process else 0
+          increment = total_cooked - previous_value
+          if increment <= 0:
+            continue
+          progress = update_badge_process(user_id, badge["badge_id"], increment, conn)
+          if progress["completed"]:
+            award_badge(user_id, badge["badge_id"], conn)
   _run_job("check_cooked_recipes", worker)
 
 

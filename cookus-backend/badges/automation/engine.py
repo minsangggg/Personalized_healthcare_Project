@@ -107,7 +107,7 @@ def award_badge(user_id: str, badge_id: int, conn=None, event_id: Optional[int] 
       cur.execute(
         """
         INSERT INTO user_badges (user_id, badge_id, awarded_at, is_active, event_id, is_displayed)
-        VALUES (%s, %s, NOW(), 1, %s, 1)
+        VALUES (%s, %s, NOW(), 0, %s, 0)
         """,
         (user_id, badge_id, event_id),
       )
