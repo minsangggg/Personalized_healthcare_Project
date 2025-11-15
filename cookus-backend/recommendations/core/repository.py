@@ -64,38 +64,37 @@ def get_user_fridge_items(user_id: str) -> pd.DataFrame:
 
 
 def fetch_candidates_like(keywords: List[str], limit: int = 200, and_top: int = 3) -> List[Dict[str, Any]]:
+    """
+    냉장고 재료 키워드 리스트로 레시피 후보를 찾는다.
+    - OR 없이 AND 조건만 사용
+    - 상위 and_top개의 키워드를 AND로 묶어서 검색
+    - 예: and_top=2 이면 최소 2개의 재료가 겹치는 레시피만 후보로 들어오게 되는 효과
+    """
     if not keywords:
         return []
     keywords = [kw for kw in keywords if kw]
     if not keywords:
         return []
 
-    def like_group_for_kw(kw: str) -> Tuple[str, List[str]]:
-        return "(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s)", [f"%{kw}%", f"%{kw}%"]
+    # 상위 and_top개의 키워드만 사용 (최소 1개 이상)
+    top = max(1, min(and_top, len(keywords))) if and_top else 1
+    and_terms = keywords[:top]
 
-    top = max(1, min(and_top, len(keywords))) if and_top else 0
-
+    # ingredient_full 또는 recipe_nm_ko에 키워드가 포함된 레시피만 찾는다.
+    # (ingredient_full LIKE '%계란%' OR recipe_nm_ko LIKE '%계란%') AND ...
     and_clauses: List[str] = []
     params: List[Any] = []
-    for kw in keywords[:top]:
-        clause, values = like_group_for_kw(kw)
-        and_clauses.append(clause)
-        params.extend(values)
 
-    or_clauses: List[str] = []
-    for kw in keywords[top:]:
-        clause, values = like_group_for_kw(kw)
-        or_clauses.append(clause)
-        params.extend(values)
+    for kw in and_terms:
+        and_clauses.append("(ingredient_full LIKE %s OR recipe_nm_ko LIKE %s)")
+        params.append(f"%{kw}%")
+        params.append(f"%{kw}%")
 
-    if and_clauses and or_clauses:
-        where = f"( {' AND '.join(and_clauses)} ) AND ( {' OR '.join(or_clauses)} )"
-    elif and_clauses:
-        where = f"( {' AND '.join(and_clauses)} )"
-    elif or_clauses:
-        where = f"( {' OR '.join(or_clauses)} )"
-    else:
+    # AND 조건이 하나도 없으면 그냥 종료
+    if not and_clauses:
         return []
+
+    where = " AND ".join(and_clauses)
 
     sql = f"""
     SELECT recipe_id, recipe_nm_ko, cooking_time, level_nm, ingredient_full, step_text, ty_nm
@@ -107,6 +106,7 @@ def fetch_candidates_like(keywords: List[str], limit: int = 200, and_top: int = 
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
+
 
 
 def fetch_candidates_or_only(keywords: List[str], limit: int = 300) -> List[Dict[str, Any]]:

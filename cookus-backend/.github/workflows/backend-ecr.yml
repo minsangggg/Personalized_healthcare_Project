@@ -1,0 +1,35 @@
+name: backend-ecr
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPO: cookus-backend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ${ECR_REPO}:${{ github.sha }} .
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Push by SHA + stage
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR="$ACCOUNT_ID.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+          docker tag ${ECR_REPO}:${GITHUB_SHA} $ECR:${GITHUB_SHA}
+          docker tag ${ECR_REPO}:${GITHUB_SHA} $ECR:stage
+          docker push $ECR:${GITHUB_SHA}
+          docker push $ECR:stage
+
+  deploy-stage:
+    needs: build-and-push
+    uses: ./.github/workflows/deploy-stage.yml
+    secrets: inherit

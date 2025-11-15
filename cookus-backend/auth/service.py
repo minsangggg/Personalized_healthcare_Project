@@ -26,7 +26,7 @@ class AuthTokens:
 class AuthService:
     """Business logic for authentication workflows."""
 
-    refresh_cookie_path = "/auth/refresh"
+    refresh_cookie_path = "/api/auth/refresh"
 
     def login(self, user_id: str, password: str, user_agent: Optional[str]) -> Tuple[Dict[str, Any], AuthTokens]:
         with get_conn() as conn, conn.cursor() as cur:

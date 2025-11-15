@@ -14,7 +14,7 @@ def insert_notification(
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO notifications (user_id, type, related_id, title, body, link_url, created_at, is_read)
+            INSERT INTO notifications (id, type, related_id, title, body, link_url, created_at, is_read)
             VALUES (%s, %s, %s, %s, %s, %s, NOW(), 0)
             """,
             (user_id, type, related_id, title, body, link_url),
@@ -25,9 +25,9 @@ def insert_notification(
 
 def list_notifications(user_id: str, since: Optional[datetime]) -> List[Dict[str, Any]]:
     sql = """
-        SELECT notification_id, user_id, type, related_id, title, body, link_url, created_at, read_at, is_read
+        SELECT notification_id, id, type, related_id, title, body, link_url, created_at, read_at, is_read
         FROM notifications
-        WHERE user_id=%s
+        WHERE id=%s
     """
     params: List[Any] = [user_id]
     if since:
@@ -44,7 +44,7 @@ def mark_read(user_id: str, notification_id: int) -> None:
             """
             UPDATE notifications
             SET is_read=1, read_at=NOW()
-            WHERE notification_id=%s AND user_id=%s
+            WHERE notification_id=%s AND id=%s
             """,
             (notification_id, user_id),
         )
@@ -56,7 +56,7 @@ def exists_today_supplement_notice(user_id: str, plan_id: int) -> bool:
             """
             SELECT 1
             FROM notifications
-            WHERE user_id=%s
+            WHERE id=%s
               AND type='supplement'
               AND related_id=%s
               AND DATE(created_at)=CURDATE()

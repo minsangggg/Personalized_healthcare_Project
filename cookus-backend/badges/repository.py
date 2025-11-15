@@ -23,7 +23,7 @@ FROM badge_info b
 LEFT JOIN user_badges ub
   ON ub.user_id = %s AND ub.badge_id = b.badge_id
 LEFT JOIN badge_process bp
-  ON bp.user_id = %s AND bp.badge_id = b.badge_id
+  ON bp.id = %s AND bp.badge_id = b.badge_id
 WHERE ub.user_badges_id IS NULL
 ORDER BY b.badge_id ASC;
 """

@@ -39,7 +39,7 @@ def update_badge_process(user_id: str, badge_id: int, increment: int, conn=None,
         """
         SELECT process_id, current_value, target_value, is_completed
         FROM badge_process
-        WHERE user_id=%s AND badge_id=%s
+        WHERE id=%s AND badge_id=%s
         ORDER BY badge_id DESC
         LIMIT 1
         """,
@@ -55,7 +55,7 @@ def update_badge_process(user_id: str, badge_id: int, increment: int, conn=None,
         initial_completed = 1 if increment >= latest_target else 0
         cur.execute(
           """
-          INSERT INTO badge_process (user_id, badge_id, current_value, target_value, is_completed, updated_at)
+          INSERT INTO badge_process (id, badge_id, current_value, target_value, is_completed, updated_at)
           VALUES (%s, %s, %s, %s, %s, NOW())
           """,
           (user_id, badge_id, increment, latest_target, initial_completed),

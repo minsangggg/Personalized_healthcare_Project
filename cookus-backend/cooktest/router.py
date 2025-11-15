@@ -129,7 +129,7 @@ def list_posts(event_id: int, request: Request, view: Optional[str] = None) -> L
         SELECT
           content_id AS post_id,
           event_id,
-          user_id,
+          id,
           content_title,
           content_text,
           img_url,
@@ -145,13 +145,13 @@ def list_posts(event_id: int, request: Request, view: Optional[str] = None) -> L
             current_user = _get_optional_user(request)
             if not current_user:
                 raise HTTPException(status_code=401, detail="Login required")
-            sql += " AND user_id=%s"
+            sql += " AND id=%s"
             params.append(current_user)
         elif view == "liked":
             current_user = _get_optional_user(request)
             if not current_user:
                 raise HTTPException(status_code=401, detail="Login required")
-            sql += " AND content_id IN (SELECT content_id FROM board_likes WHERE user_id=%s)"
+            sql += " AND content_id IN (SELECT content_id FROM board_likes WHERE id=%s)"
             params.append(current_user)
         sql += " ORDER BY created_at DESC"
         cur.execute(sql, tuple(params))
@@ -181,7 +181,7 @@ def get_post(event_id: int, post_id: int) -> Dict[str, Any]:
         SELECT
           content_id AS post_id,
           event_id,
-          user_id,
+          id,
           content_title,
           content_text,
           img_url,
@@ -234,7 +234,7 @@ def create_post(
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO board (event_id, user_id, content_title, content_text, img_url, like_count, created_at)
+            INSERT INTO board (event_id, id, content_title, content_text, img_url, like_count, created_at)
             VALUES (%s, %s, %s, %s, %s, 0, NOW())
             """,
             (event_id, current_user, title, text, img_column_value),
@@ -244,7 +244,7 @@ def create_post(
             SELECT
               content_id AS post_id,
               event_id,
-              user_id,
+              id,
               content_title,
               content_text,
               img_url,
@@ -282,13 +282,13 @@ def update_post(
         raise HTTPException(status_code=400, detail="Invalid payload")
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT user_id FROM board WHERE content_id=%s AND event_id=%s",
+            "SELECT id FROM board WHERE content_id=%s AND event_id=%s",
             (post_id, event_id),
         )
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
-        if str(row["user_id"]) != str(current_user):
+        if str(row["id"]) != str(current_user):
             raise HTTPException(status_code=403, detail="Not allowed")
         cur.execute(
             """
@@ -303,7 +303,7 @@ def update_post(
             SELECT
               content_id AS post_id,
               event_id,
-              user_id,
+              id,
               content_title,
               content_text,
               img_url,
@@ -339,13 +339,13 @@ def delete_post(
 ) -> Dict[str, Any]:
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT user_id FROM board WHERE content_id=%s AND event_id=%s",
+            "SELECT id FROM board WHERE content_id=%s AND event_id=%s",
             (post_id, event_id),
         )
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
-        if str(row["user_id"]) != str(current_user):
+        if str(row["id"]) != str(current_user):
             raise HTTPException(status_code=403, detail="Not allowed")
         cur.execute("DELETE FROM board_likes WHERE content_id=%s", (post_id,))
         cur.execute("DELETE FROM board WHERE content_id=%s AND event_id=%s", (post_id, event_id))
@@ -359,9 +359,9 @@ def _ensure_likes_table(cur) -> None:
         """
         CREATE TABLE IF NOT EXISTS board_likes (
           content_id INT NOT NULL,
-          user_id VARCHAR(255) NOT NULL,
+          id VARCHAR(255) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          PRIMARY KEY (content_id, user_id),
+          PRIMARY KEY (content_id, id),
           INDEX (content_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """
@@ -377,36 +377,34 @@ def get_my_likes(event_id: int, current_user: str = Depends(get_current_user)) -
             SELECT bl.content_id AS post_id
             FROM board_likes bl
             JOIN board b ON b.content_id = bl.content_id
-            WHERE bl.user_id=%s AND b.event_id=%s
+            WHERE bl.id=%s AND b.event_id=%s
             """,
             (current_user, event_id),
         )
         rows = cur.fetchall()
     return {"liked_post_ids": [row["post_id"] for row in rows]}
 
-
-@router.get("/users/{user_id}/cooktest-posts")
-@router.get("/cooktest/users/{user_id}/posts")
-def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
-    variants = _user_id_variants(user_id)
-    if not variants:
-        variants = [user_id]
-    placeholders = ", ".join(["%s"] * len(variants))
+@router.get("/users/{id}/cooktest-posts")
+@router.get("/cooktest/users/{id}/posts")
+def list_user_cooktest_posts(id: str, request: Request) -> Dict[str, Any]:
+    target = str(id).strip()
     viewer = _get_optional_user(request)
+    viewer_id = str(viewer["id"]).strip() if viewer and "id" in viewer and viewer["id"] is not None else None
+
     like_join = ""
     like_select = "0 AS liked_by_me"
-    params: List[Any] = list(variants)
-    if viewer:
-        like_join = " LEFT JOIN board_likes bl ON bl.content_id = b.content_id AND bl.user_id=%s"
-        like_select = "CASE WHEN bl.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_me"
-        params.append(viewer)
+    params_posts: List[Any] = [target]
+    if viewer_id:
+        like_join = " LEFT JOIN board_likes bl ON bl.content_id = b.content_id AND bl.id=%s"
+        like_select = "CASE WHEN bl.id IS NULL THEN 0 ELSE 1 END AS liked_by_me"
+        params_posts.append(viewer_id)
 
     with get_conn() as conn, conn.cursor() as cur:
         sql_posts = f"""
             SELECT
               b.content_id AS post_id,
               b.event_id,
-              b.user_id,
+              b.id,
               COALESCE(up.user_name, '') AS user_name,
               b.content_title,
               b.content_text,
@@ -417,16 +415,16 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
               {like_select}
             FROM board b
             JOIN event e ON e.event_id = b.event_id
-            LEFT JOIN user_profile up ON up.user_id = b.user_id
+            LEFT JOIN user_profile up ON up.id = b.id
             {like_join}
-            WHERE b.user_id IN ({placeholders})
+            WHERE b.id = %s
             ORDER BY b.like_count DESC, b.created_at DESC
         """
         sql_posts_no_profile = f"""
             SELECT
               b.content_id AS post_id,
               b.event_id,
-              b.user_id,
+              b.id,
               '' AS user_name,
               b.content_title,
               b.content_text,
@@ -438,14 +436,14 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
             FROM board b
             JOIN event e ON e.event_id = b.event_id
             {like_join}
-            WHERE b.user_id IN ({placeholders})
+            WHERE b.id = %s
             ORDER BY b.like_count DESC, b.created_at DESC
         """
         try:
-            cur.execute(sql_posts, tuple(params))
+            cur.execute(sql_posts, tuple(params_posts))
         except ProgrammingError as exc:
             if exc.args and exc.args[0] == 1146:
-                cur.execute(sql_posts_no_profile, tuple(params))
+                cur.execute(sql_posts_no_profile, tuple(params_posts))
             else:
                 raise
         rows = cur.fetchall()
@@ -457,7 +455,7 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
             posts.append(row)
 
         cur.execute(
-            f"""
+            """
             SELECT DISTINCT
               e.event_id,
               e.event_name,
@@ -465,10 +463,10 @@ def list_user_cooktest_posts(user_id: str, request: Request) -> Dict[str, Any]:
               e.end_date
             FROM event e
             JOIN board b ON b.event_id = e.event_id
-            WHERE b.user_id IN ({placeholders})
+            WHERE b.id = %s
             ORDER BY e.start_date DESC
             """,
-            tuple(variants),
+            (target,),
         )
         events = cur.fetchall()
 
@@ -482,7 +480,7 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
         _ensure_likes_table(cur)
         cur.execute(
             """
-            INSERT IGNORE INTO board_likes (content_id, user_id)
+            INSERT IGNORE INTO board_likes (content_id, id)
             VALUES (%s, %s)
             """,
             (post_id, uid),
@@ -493,15 +491,15 @@ def like_post(post_id: int, current_user: str = Depends(get_current_user)) -> Di
                 "UPDATE board SET like_count = like_count + 1 WHERE content_id=%s",
                 (post_id,),
             )
-        cur.execute("SELECT user_id, like_count AS likes FROM board WHERE content_id=%s", (post_id,))
+        cur.execute("SELECT id, like_count AS likes FROM board WHERE content_id=%s", (post_id,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Post not found")
-        owner_id, like_count = row["user_id"], row["likes"]
+        owner_id, like_count = row["id"], row["likes"]
     # Notify on every new like (except self-like)
     if new_like and str(uid) != str(owner_id):
         notify(
-            user_id=str(owner_id),
+            id=str(owner_id),
             title="새 좋아요",
             body=f"{uid}님이 게시글에 좋아요를 눌렀어요.",
             link_url=f"/boards/{post_id}",
@@ -517,7 +515,7 @@ def unlike_post(post_id: int, current_user: str = Depends(get_current_user)) -> 
     with get_conn() as conn, conn.cursor() as cur:
         _ensure_likes_table(cur)
         cur.execute(
-            "DELETE FROM board_likes WHERE content_id=%s AND user_id=%s",
+            "DELETE FROM board_likes WHERE content_id=%s AND id=%s",
             (post_id, uid),
         )
         if cur.rowcount == 1:

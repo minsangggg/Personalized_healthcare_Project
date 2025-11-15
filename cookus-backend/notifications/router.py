@@ -53,7 +53,7 @@ async def stream_notifications(access_token: Optional[str] = Query(default=None)
 
     # 폴러가 새 알림을 발견하면 여기로 한 건씩 들어온다
     def _subscriber(row: Dict[str, Any]) -> None:
-        if str(row.get("user_id")) == user_id:  # 내 알림만
+        if str(row.get("id")) == user_id:  # 내 알림만
             try:
                 queue.put_nowait(row)
             except Exception:

@@ -1,0 +1,43 @@
+name: deploy-stage
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+concurrency:
+  group: cookus-deploy-stage
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      EC2_USER: ec2-user
+      EC2_HOST_RAW: ${{ secrets.EC2_HOST }}
+
+    steps:
+      - name: Guard secrets & normalize host
+        run: |
+          set -euo pipefail
+          [ -n "${EC2_HOST_RAW:-}" ] || { echo "::error::EC2_HOST is empty"; exit 1; }
+          H="$(printf '%s' "${EC2_HOST_RAW}" | tr -d '\r' | xargs)"
+          [ -n "$H" ] || { echo "::error::EC2_HOST trimmed empty"; exit 1; }
+          echo "EC2_HOST=$H" >> $GITHUB_ENV
+          [ -n "${{ secrets.EC2_SSH_KEY }}" ] || { echo "::error::EC2_SSH_KEY is empty"; exit 1; }
+
+      - name: Write SSH key
+        run: |
+          umask 077
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Test SSH
+        run: ssh -o StrictHostKeyChecking=accept-new -i key.pem "${EC2_USER}@${EC2_HOST}" "echo connected"
+
+      - name: Run deploy script (.sh exists on EC2)
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -i key.pem "${EC2_USER}@${EC2_HOST}" \
+            'bash -lc "bash /home/ec2-user/deploy_stage.sh"'
+
+      - name: External health check
+        run: curl -fsSI "http://${EC2_HOST}/api/health" | head -n 1

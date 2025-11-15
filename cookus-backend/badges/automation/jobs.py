@@ -27,7 +27,7 @@ def check_new_boards():
     with get_conn() as conn, conn.cursor() as cur:
       cur.execute(
         """
-        SELECT DISTINCT user_id
+        SELECT DISTINCT id AS user_id
         FROM board
         WHERE created_at >= NOW() - INTERVAL %s SECOND
         """,
@@ -90,7 +90,7 @@ def check_cooked_recipes():
             """
             SELECT current_value
             FROM badge_process
-            WHERE user_id=%s AND badge_id=%s
+            WHERE id=%s AND badge_id=%s
             ORDER BY process_id DESC
             LIMIT 1
             """,
@@ -207,7 +207,7 @@ def check_popular_boards():
         content_id = row["content_id"]
         cur.execute(
           """
-          SELECT user_id, like_count, is_popular
+          SELECT id AS user_id, like_count, is_popular
           FROM board
           WHERE content_id=%s
           """,
@@ -256,13 +256,13 @@ def aggregate_event_results():
         event_id = event["event_id"]
         cur.execute(
           """
-          INSERT INTO event_result (event_id, content_id, user_id, rank, like_count)
+          INSERT INTO event_result (event_id, content_id, id, rank, like_count)
           SELECT *
           FROM (
             SELECT
               board.event_id,
               board.content_id,
-              board.user_id,
+              board.id,
               ROW_NUMBER() OVER (PARTITION BY board.event_id ORDER BY board.like_count DESC, board.created_at ASC) AS rank,
               board.like_count
             FROM board
@@ -275,7 +275,7 @@ def aggregate_event_results():
 
         cur.execute(
           """
-          SELECT user_id, rank
+          SELECT id AS user_id, rank
           FROM event_result
           WHERE event_id=%s
           """,
