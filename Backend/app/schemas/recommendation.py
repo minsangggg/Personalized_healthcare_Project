@@ -11,6 +11,8 @@ class IngredientForRecommendation(BaseModel):
 class RecommendRequest(BaseModel):
     user_id: str
     ingredients: Optional[List[IngredientForRecommendation]] = None
+    exclude_ids: Optional[List[str | int]] = None
+    exclude_signature: Optional[str] = None
 
 
 class SelectedRecipe(BaseModel):

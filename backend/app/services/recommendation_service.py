@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import Any, List, Tuple
 
 from fastapi import HTTPException
+import json as _json
+import re as _re
+import hashlib
 
 from app.db.connection import connection_scope
 from app.schemas.recommendation import RecommendRequest, SelectedRecipe, SelectedRecipeAction
@@ -58,15 +61,59 @@ def _merge_adapted_recipes(originals: List[dict], adapted: List[dict]) -> List[d
         if recipe["recipe_id"] not in used_ids:
             merged.append(recipe)
 
-    return merged[:7]
+    return merged[:4]
+
+
+def _normalize_name(value: str) -> str:
+    """Lowercase, strip, and remove underscores/spaces for loose matching."""
+    return re.sub(r"[\s_]+", "", str(value or "").strip().lower())
+
+
+def _core_keys(ingredient_full: Any, limit: int = 3) -> List[str]:
+    """Extract top N ingredient keys if JSON-like, else return empty list."""
+    keys: List[str] = []
+    if isinstance(ingredient_full, (dict, list)):
+        if isinstance(ingredient_full, dict):
+            keys = list(ingredient_full.keys())
+    elif isinstance(ingredient_full, str):
+        try:
+            parsed = _json.loads(ingredient_full)
+            if isinstance(parsed, dict):
+                keys = list(parsed.keys())
+        except _json.JSONDecodeError:
+            keys = []
+    return [_normalize_name(k) for k in keys[:limit] if str(k).strip()]
+
+
+def _name_tokens(name: str) -> List[str]:
+    tokens = _re.split(r"[\\s/·.,()]+", name or "")
+    return [_normalize_name(t) for t in tokens if t.strip()]
+
+
+def _ingredient_signature(items: List[dict]) -> str:
+    """Build a stable signature string from ingredient list (name/amount)."""
+    normalized = []
+    for item in items:
+        name = _normalize_name(item.get("name", ""))
+        if not name:
+            continue
+        amount = str(item.get("amount") or "").strip()
+        normalized.append(f"{name}:{amount}")
+    normalized.sort()
+    base = ";".join(normalized)
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()
 
 
 def recommend_recipes(payload: RecommendRequest) -> dict:
     user_id = payload.user_id
     ingredients_payload = payload.ingredients or []
     ingredient_dicts = [ingredient.model_dump() for ingredient in ingredients_payload]
-    normalized_ingredients = _normalize_ingredients(ingredient_dicts)
+    normalized_ingredients: List[Tuple[str, str]] = []
+    user_names: set[str] = set()
     final_recipes: List[dict] = []
+    current_signature = ""
+    exclude_ids: set[str] = set()
+    exclude_signature = None
 
     try:
         with connection_scope() as conn:
@@ -78,6 +125,43 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
 
                 user_level = user["cooking_level"]
                 user_name = user.get("user_name") or user_id
+
+                # ✅ fridge_item 테이블에 저장된 사용자의 재료도 함께 사용
+                cur.execute(
+                    """
+                    SELECT ingredient_name, quantity
+                    FROM fridge_item
+                    WHERE id = %s
+                      AND stored_at >= DATE_SUB(NOW(), INTERVAL 28 DAY)
+                    """,
+                    (user_id,),
+                )
+                stored_items = cur.fetchall()
+                stored_dicts = []
+                for item in stored_items:
+                    name = item.get("ingredient_name")
+                    qty = item.get("quantity")
+                    if name:
+                        stored_dicts.append({"name": str(name), "amount": str(qty)})
+
+                # 요청으로 받은 재료 + 저장된 재료를 통합(이름 기준 마지막 값 우선)
+                merged_items: dict[str, dict] = {}
+                for item in ingredient_dicts + stored_dicts:
+                    name = str(item.get("name") or "").strip()
+                    if not name:
+                        continue
+                    merged_items[name.lower()] = {"name": name, "amount": str(item.get("amount") or "")}
+
+                merged_list = list(merged_items.values())
+                normalized_ingredients = _normalize_ingredients(merged_list)
+                user_names = {_normalize_name(name) for name, _ in normalized_ingredients}
+
+                # 요청 기준 시그니처를 사용해 exclude 비교 (프런트와 일치하도록)
+                current_signature = payload.exclude_signature or _ingredient_signature(ingredient_dicts)
+
+                if payload.exclude_ids and payload.exclude_signature == current_signature:
+                    exclude_ids = {str(x) for x in payload.exclude_ids}
+                    exclude_signature = payload.exclude_signature
 
                 cur.execute(
                     """
@@ -91,6 +175,7 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                         ty_nm AS `type`
                     FROM recipe
                     WHERE level_nm = %s
+                      AND (ty_nm IS NULL OR ty_nm <> '빵')
                     """,
                     (user_level,),
                 )
@@ -98,6 +183,13 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
 
                 scored = []
                 for recipe in recipes:
+                    if exclude_ids and str(recipe.get("recipe_id")) in exclude_ids:
+                        continue
+                    # 주요 재료(앞 3개)가 사용자의 재료와 전혀 겹치지 않으면 추천 후보에서 제외
+                    core_keys = _core_keys(recipe.get("ingredient_full"), limit=3)
+                    if core_keys and not user_names.intersection(core_keys):
+                        continue
+
                     raw_text = (
                         str(recipe["ingredient_full"])
                         .lower()
@@ -135,25 +227,49 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                     total = item["total_ingredients"] or 1
                     item["match_ratio"] = round((item["match_count"] / total) * 100, 1)
 
-                filtered = [
-                    item for item in scored if item["match_count"] >= 2 or item["match_ratio"] >= 10
-                ]
+                # 핵심 재료(ingredient_full 앞 3개) 중 2개 이상이 사용자 재료와 겹치는 레시피만 남김
+                filtered = []
+                for item in scored:
+                    core_keys = _core_keys(item.get("ingredient_full"), limit=3)
+                    if len(set(core_keys).intersection(user_names)) >= 2:
+                        filtered.append(item)
+
                 filtered.sort(key=lambda item: (item["match_count"], item["match_ratio"]), reverse=True)
-                top_recipes = filtered[:7]
+                top_recipes = filtered[:4]
 
                 adapted_recipes: List[dict] = []
                 if top_recipes:
+                    # 레시피명과 주요 재료(앞 3개) 매칭이 충분하면 LLM 스킵
+                    def _is_name_aligned(recipe_item: dict) -> bool:
+                        name_tokens = _name_tokens(str(recipe_item.get("recipe_nm_ko") or ""))
+                        core = _core_keys(recipe_item.get("ingredient_full"), limit=3)
+                        overlap = set(name_tokens).intersection(core)
+                        return len(overlap) >= 2
+
+                    skip_llm = all(_is_name_aligned(item) for item in top_recipes)
+
+                    # 상위 일부(최대 3개)만 LLM에 보내고 나머지는 원본 유지
+                    llm_candidates = top_recipes[:3]
+                    passthrough = top_recipes[3:]
+
+                if top_recipes and not skip_llm:
                     try:
                         adapted_recipes = adapt_recipes_with_llm(
                             user_name=user_name,
                             fridge_items=ingredient_dicts,
                             level=user_level,
-                            candidates=top_recipes,
+                            candidates=llm_candidates,
                             recent_emphasis=[],
                         )
                     except LLMAdaptationError as exc:
                         logger.warning("LLM adaptation skipped: %s", exc)
                         adapted_recipes = []
+                # LLM 타임아웃/예외 시에는 adapted_recipes가 비어있을 수 있으므로 폴백
+                if top_recipes and adapted_recipes is None:
+                    adapted_recipes = []
+                # LLM을 돌린 결과 + 나머지 원본을 합쳐서 merge 단계로 보냄
+                if top_recipes:
+                    adapted_recipes = (adapted_recipes or []) + passthrough
 
                 final_recipes = _merge_adapted_recipes(top_recipes, adapted_recipes)
 
@@ -183,7 +299,11 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                     recipe["recommend_id"] = cur.lastrowid
             conn.commit()
 
-        return {"user_level": user["cooking_level"], "recommendations": final_recipes}
+        return {
+            "user_level": user["cooking_level"],
+            "recommendations": final_recipes,
+            "ingredient_signature": current_signature,
+        }
     except HTTPException:
         raise
     except Exception as exc:  # pylint: disable=broad-except

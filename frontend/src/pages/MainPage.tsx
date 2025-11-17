@@ -3,9 +3,10 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type ComponentType,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaUserCircle } from "react-icons/fa";
 
 import { useAuth } from "./AuthContext";
@@ -121,6 +122,26 @@ export default function MainPage() {
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<string[]>([]);
 const STORAGE_LAST_RECOMMEND = "cookus:last-recommended";
+const STORAGE_SEEN_RECOMMEND = "cookus:seen-recipes";
+
+type SeenRecipe = {
+  id: string;
+  signature: string;
+  seenAt: number;
+};
+
+function buildIngredientSignature(items: IngredientItem[]): string {
+  const normalized = items
+    .map((item) => {
+      const name = item.name.trim().toLowerCase().replace(/\s+/g, "").replace(/_/g, "");
+      if (!name) return null;
+      const amount = (item.amount || "").toString().trim();
+      return `${name}:${amount}`;
+    })
+    .filter(Boolean) as string[];
+  normalized.sort();
+  return normalized.join(";");
+}
 const [recommended, setRecommended] = useState<RecommendationItem[]>([]);
 const [lastRecommended, setLastRecommended] = useState<RecommendationItem[]>(() => {
   try {
@@ -146,6 +167,9 @@ const [lastRecommended, setLastRecommended] = useState<RecommendationItem[]>(() 
 const [videoUrl, setVideoUrl] = useState<string | null>(null);
 const [videoLoading, setVideoLoading] = useState(false);
 const [cleanedSteps, setCleanedSteps] = useState<string[]>([]);
+  const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const [quickMenuPos, setQuickMenuPos] = useState<{ top: number; left: number }>({ top: 12, left: 12 });
+  const quickMenuButtonRef = useRef<HTMLButtonElement | null>(null);
 
 const ingredientList = useMemo(
   () => parseIngredientList(selectedRecipe?.ingredient_full),
@@ -156,6 +180,7 @@ const stepsToRender = cleanedSteps.length ? cleanedSteps : stepList;
 
   const { user, logout } = useAuth();
   const userId = useMemo(() => user?.id ?? localStorage.getItem("currentUser"), [user?.id]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const skipSplash = sessionStorage.getItem("skipSplash");
@@ -282,8 +307,22 @@ const stepsToRender = cleanedSteps.length ? cleanedSteps : stepList;
   const changeAmount = (name: string, delta: number) => {
     const updated = ingredients.map((item) =>
       item.name === name
-        ? { ...item, amount: Math.max(1, Number(item.amount) + delta).toString() }
+        ? (() => {
+            const parsed = parseFloat(item.amount as string);
+            if (Number.isNaN(parsed)) {
+              return item; // 숫자가 아닌 경우(예: 50g)는 그대로 둠
+            }
+            const next = Math.max(1, parsed + delta);
+            return { ...item, amount: next.toString() };
+          })()
         : item
+    );
+    persistIngredients(updated);
+  };
+
+  const updateAmount = (name: string, value: string) => {
+    const updated = ingredients.map((item) =>
+      item.name === name ? { ...item, amount: value } : item
     );
     persistIngredients(updated);
   };
@@ -324,20 +363,73 @@ const stepsToRender = cleanedSteps.length ? cleanedSteps : stepList;
     }
     setLoading(true);
     try {
-      const data = await apiFetch<{ recommendations?: RecommendationItem[]; user_level?: string }>(
-        "/recommend",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            user_id: userId,
-            ingredients: ingredients.map((item) => ({
-              name: item.name,
-              amount: item.amount,
-            })),
-          }),
+      const signature = buildIngredientSignature(ingredients);
+      const seenRaw = localStorage.getItem(STORAGE_SEEN_RECOMMEND);
+      let seenList: SeenRecipe[] = [];
+      if (seenRaw) {
+        try {
+          const parsed = JSON.parse(seenRaw);
+          if (Array.isArray(parsed)) {
+            seenList = parsed
+              .map((item) => {
+                if (typeof item === "string" || typeof item === "number") {
+                  return { id: String(item), signature: "", seenAt: 0 } as SeenRecipe;
+                }
+                return {
+                  id: String(item.id),
+                  signature: String(item.signature || ""),
+                  seenAt: Number(item.seenAt) || 0,
+                } as SeenRecipe;
+              })
+              .filter((item) => item.id);
+          }
+        } catch {
+          seenList = [];
         }
+      }
+
+      const currentSeen = seenList.filter((item) => item.signature === signature);
+      const excludeIds = currentSeen.map((item) => item.id);
+
+      const data = await apiFetch<{
+        recommendations?: RecommendationItem[];
+        user_level?: string;
+        ingredient_signature?: string;
+      }>("/recommend", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: userId,
+          ingredients: ingredients.map((item) => ({
+            name: item.name,
+            amount: item.amount,
+          })),
+          exclude_ids: excludeIds,
+          exclude_signature: signature,
+        }),
+      });
+      const respSignature = data.ingredient_signature || signature;
+      const incoming = (data.recommendations ?? []).map((item) => ({ ...item, selected: false }));
+
+      const filtered = incoming.filter(
+        (item) => !seenList.some((seen) => seen.signature === respSignature && seen.id === String(item.recipe_id))
       );
-      const list = (data.recommendations ?? []).map((item) => ({ ...item, selected: false }));
+      const list = filtered.length > 0 ? filtered : incoming;
+
+      const nextSeen = seenList
+        .filter((item) => item.signature !== respSignature) // 다른 시그니처는 보존
+        .concat(
+          list.map(
+            (item) =>
+              ({
+                id: String(item.recipe_id),
+                signature: respSignature,
+                seenAt: Date.now(),
+              } as SeenRecipe)
+          )
+        );
+
+      localStorage.setItem(STORAGE_SEEN_RECOMMEND, JSON.stringify(nextSeen));
+
       setRecommended(list);
       setLastRecommended(list);
       localStorage.setItem(STORAGE_LAST_RECOMMEND, JSON.stringify(list));
@@ -535,8 +627,25 @@ const handleWatchVideo = async () => {
 
   return (
     <>
-      <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
+      <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showHomeButton={false}>
       <header className="relative pt-6 pb-4 text-center">
+        <button
+          type="button"
+          aria-label="열기"
+          ref={quickMenuButtonRef}
+          onClick={() => {
+            const rect = quickMenuButtonRef.current?.getBoundingClientRect();
+            if (rect) {
+              setQuickMenuPos({ top: rect.top, left: rect.left });
+            }
+            setShowQuickMenu(true);
+          }}
+          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-white/70 text-[#6B2E00] shadow hover:bg-white"
+        >
+          <span className="block h-[2px] w-5 bg-current" />
+          <span className="block h-[2px] w-5 bg-current" />
+          <span className="block h-[2px] w-5 bg-current" />
+        </button>
         <h1 className="text-xl font-extrabold tracking-wide">CookUS</h1>
         <nav className="mt-3 flex items-center justify-center gap-5 text-sm font-semibold">
           <Link to="/" className="hover:text-[#8B4000]">
@@ -694,7 +803,7 @@ const handleWatchVideo = async () => {
               <Link to="/about" className="hover:text-[#8B4000]">
                 {TEXT.footer.about}
               </Link>
-              <Link to="/faq" className="underline underline-offset-4 hover:text-[#8B4000]">
+              <Link to="/faq" className="hover:text-[#8B4000]">
                 {TEXT.footer.faq}
               </Link>
             </p>
@@ -706,6 +815,80 @@ const handleWatchVideo = async () => {
         </div>
       </main>
     </VideoBackgroundLayout>
+
+      {showQuickMenu && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/25"
+            aria-label="오버레이 닫기"
+            onClick={() => setShowQuickMenu(false)}
+          />
+          <div
+            className="absolute w-[280px] max-w-[85%] rounded-2xl bg-[#FFF2D9] p-6 text-[#6B2E00] shadow-2xl animate-slide-in-left"
+            style={{ top: `${quickMenuPos.top}px`, left: `${quickMenuPos.left}px` }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowQuickMenu(false)}
+              className="absolute right-5 top-4 text-xl font-bold text-[#6B2E00]"
+              aria-label="닫기"
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-extrabold">바로가기</h3>
+            <p className="mt-1 text-sm text-[#6B2E00]/80">
+              이벤트 · 게시판 · 나의 진행을 빠르게 확인하세요.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickMenu(false);
+                  navigate("/events");
+                }}
+                className="w-full rounded-2xl bg-[#F7D98A]/90 px-4 py-3 text-left text-sm font-semibold shadow hover:bg-[#f1d082]"
+              >
+                이벤트 / 대회
+                <span className="mt-1 block text-xs font-medium text-[#6B2E00]/80">
+                  일정 · 참가 · 결과 확인 메뉴로 이동
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickMenu(false);
+                  navigate("/board");
+                }}
+                className="w-full rounded-2xl bg-[#FFB15E] px-4 py-3 text-left text-sm font-semibold text-white shadow hover:bg-[#ff9d3d]"
+              >
+                게시판
+                <span className="mt-1 block text-xs font-medium text-white/90">
+                  글 작성 · 좋아요 · 인기글 모아보기
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuickMenu(false);
+                  navigate("/progress");
+                }}
+                className="w-full rounded-2xl border border-[#E7C9A1] bg-white px-4 py-3 text-left text-sm font-semibold text-[#6B2E00] shadow"
+              >
+                나의 진행
+                <span className="mt-1 block text-xs font-medium text-[#6B2E00]/80">
+                  목표 진행도 · 보상 캐시 확인
+                </span>
+              </button>
+            </div>
+
+            <p className="mt-4 text-[11px] text-[#6B2E00]/70">
+              상세 화면은 별도 페이지에서 확장 예정입니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
@@ -756,7 +939,13 @@ const handleWatchVideo = async () => {
                     <button onClick={() => changeAmount(item.name, -1)} className="px-2">
                       -
                     </button>
-                    <span>{item.amount}</span>
+                    <input
+                      type="text"
+                      value={item.amount}
+                      onChange={(e) => updateAmount(item.name, e.target.value)}
+                      className="w-20 rounded border border-[#D7B78A] px-2 py-1 text-center text-xs"
+                      placeholder="예: 50g"
+                    />
                     <button onClick={() => changeAmount(item.name, 1)} className="px-2">
                       +
                     </button>

@@ -104,6 +104,7 @@ def adapt_recipes_with_llm(
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
+            timeout=2.0,
         )
     except OpenAIError as exc:  # pragma: no cover - network call
         raise LLMAdaptationError("LLM 호출에 실패했습니다.") from exc
@@ -260,18 +261,19 @@ def clean_recipe_steps_with_llm(raw_text: str) -> List[str]:
     system_prompt = (
         "You are a culinary editor. Remove jokes, personal comments, ads, emoji, "
         "or anything unrelated to executing the recipe. Each step must be a single plain sentence "
-        "describing only what the cook should do."
+        "describing only what the cook should do. Keep the language exactly as the input (Korean), "
+        "never translate to English."
     )
     user_prompt = f"""You will receive raw recipe steps. Keep only the imperative instructions
 and delete personal stories, jokes, reactions, ads, or any text inside parentheses.
 Each step must be exactly one sentence and must not contain commas or quotes.
-Return only JSON with a 'steps' array.
+Return only JSON with a 'steps' array. Output must stay in Korean; do not translate.
 
 Input text:
 {cleaned_input}
 
 Output format example:
-{{"steps": ["Prepare the ingredients.", "Add seasoning and cook."]}}
+{{"steps": ["재료를 준비하세요.", "양념을 넣고 볶으세요."]}}
 """
 
     try:

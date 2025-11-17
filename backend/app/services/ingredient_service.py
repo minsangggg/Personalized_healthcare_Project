@@ -25,8 +25,10 @@ def add_ingredient(item: IngredientItem) -> dict:
                         quantity = VALUES(quantity),
                         stored_at = VALUES(stored_at)
                 """
+                raw_amount = str(item.amount or "").strip()
                 try:
-                    quantity_value = int(float(item.amount))
+                    normalized = raw_amount.lower().rstrip("g").strip()
+                    quantity_value = int(float(normalized)) if normalized else 1
                 except (TypeError, ValueError):
                     quantity_value = 1
 

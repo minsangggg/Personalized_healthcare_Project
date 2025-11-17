@@ -13,6 +13,9 @@ import FaqPage from "./pages/Faq";
 import AboutPage from "./pages/About";
 import SavingsDetail from "./pages/SavingsDetail";
 import ReceiptUpload from "./pages/ReceiptUpload";
+import EventsPage from "./pages/Events";
+import BoardPage from "./pages/Board";
+import ProgressPage from "./pages/Progress";
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -36,6 +39,9 @@ export default function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/savings-detail" element={<SavingsDetail />} />
             <Route path="/receipt-upload" element={<ReceiptUpload />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/board" element={<BoardPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
           </Routes>
         )}
       </Router>

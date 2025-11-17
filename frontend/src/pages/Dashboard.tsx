@@ -37,7 +37,6 @@ const TEXT = {
   footer: {
     title: "2025 Recipe Market",
     about: "\uC18C\uAC1C",
-    notice: "\uACF5\uC9C0\uC0AC\uD56D",
     faq: "FAQ",
     contact: "Recipe Market | 123-45-6789 | +82-1234-4567",
     email: "hello@recipemarket.com",
@@ -277,7 +276,7 @@ export default function Dashboard() {
         <p className="text-sm font-semibold">{TEXT.footer.title}</p>
         <p className="mt-3 flex justify-center gap-4 font-medium">
           <span>{TEXT.footer.about}</span>
-          <span>{TEXT.footer.notice}</span>
+          
           <span>{TEXT.footer.faq}</span>
         </p>
         <p className="mt-3">{TEXT.footer.contact}</p>

@@ -103,3 +103,18 @@
   background-color: #c49a5c;
 }
 
+/* 슬라이드 인 애니메이션 (햄버거 메뉴 패널) */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s ease-out forwards;
+}
+
