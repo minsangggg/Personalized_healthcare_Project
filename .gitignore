@@ -230,3 +230,6 @@ database/data
 *.example
 *.html
 *.jpg
+.env.production
+.env.streamlit
+Dockerfile
