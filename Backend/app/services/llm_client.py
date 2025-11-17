@@ -96,7 +96,10 @@ def adapt_recipes_with_llm(
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a culinary assistant who ONLY outputs valid JSON.",
+                    "content": (
+                        "You are a culinary assistant who ONLY outputs valid JSON. "
+                        "All fields (recipe_nm_ko, ingredient_full, step_text) must be written in Korean."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
