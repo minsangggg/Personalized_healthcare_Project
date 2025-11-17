@@ -87,7 +87,8 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                         ingredient_full,
                         level_nm,
                         cooking_time,
-                        step_text
+                        step_text,
+                        ty_nm AS `type`
                     FROM recipe
                     WHERE level_nm = %s
                     """,
@@ -124,6 +125,7 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                                 "ingredient_full": recipe.get("ingredient_full"),
                                 "cooking_time": recipe.get("cooking_time"),
                                 "step_text": recipe.get("step_text"),
+                                "type": recipe.get("type"),
                                 "match_count": match_count,
                                 "total_ingredients": len(recipe_ingredients),
                             }
@@ -164,9 +166,10 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                             recipe_nm_ko,
                             ingredient_full,
                             step_text,
+                            `type`,
                             recommend_date
                         )
-                        VALUES (%s, %s, %s, %s, %s, NOW())
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
                         """,
                         (
                             user_id,
@@ -174,6 +177,7 @@ def recommend_recipes(payload: RecommendRequest) -> dict:
                             recipe["recipe_nm_ko"],
                             _serialize_text(recipe.get("ingredient_full")),
                             _serialize_text(recipe.get("step_text")),
+                            _serialize_text(recipe.get("type")),
                         ),
                     )
                     recipe["recommend_id"] = cur.lastrowid
