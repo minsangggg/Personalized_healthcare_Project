@@ -218,7 +218,7 @@ backend/.mypy_cache/
 *.md
 *.cmd
 *.ps1
-*.json
+
 *.LICENSE
 LICENSE
 *.cts
@@ -230,7 +230,7 @@ frontend/node_modules/
 *.png
 *.mp4
 *.mjs
-*.txt
+backend/vision_ocr.json
 tsc
 tsserver
 *.flow
