@@ -206,7 +206,13 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-Backend/
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+backend/.env
+backend/*.log
+backend/.pytest_cache/
+backend/.mypy_cache/
 
 *.js
 *.md
@@ -234,4 +240,4 @@ database/data
 *.jpg
 .env.production
 .env.streamlit
-Dockerfile
+
