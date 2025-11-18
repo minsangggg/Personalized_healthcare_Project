@@ -18,6 +18,12 @@ def login_endpoint(payload: LoginRequest) -> dict:
     return login(payload)
 
 
+@router.options("/login", include_in_schema=False)
+def login_options():
+    """CORS preflight for login"""
+    return {}
+
+
 @router.post("/reset_password")
 def reset_password_endpoint(payload: ResetPasswordRequest) -> dict:
     """이메일로 임시 비밀번호 전송"""
