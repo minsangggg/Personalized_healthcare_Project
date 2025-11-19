@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted   # 이것만 있으면됨
+    runs-on: self-hosted   # 이것만 있으면 됨
 
     steps:
       - name: Checkout
