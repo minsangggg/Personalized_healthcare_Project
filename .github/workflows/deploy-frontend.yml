@@ -38,11 +38,11 @@ jobs:
       # 4) 프론트 이미지 빌드 & 푸시
       - name: Build and push frontend image
         run: |
-          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
+          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f frontend/Dockerfile ./frontend
           docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
 
-      # 5) 프론트 EC2에 배포
+      # 5) 프론트 EC2 배포
       - name: Deploy to Frontend EC2
         env:
           EC2_HOST: ${{ secrets.EC2_FRONTEND_HOST }}
