@@ -8,74 +8,27 @@ on:
       - ".github/workflows/deploy-backend.yml"
 
 jobs:
-  build-and-deploy-backend:
-    runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: ap-northeast-2
-      AWS_ACCOUNT_ID: "314432538223"
-      ECR_REPOSITORY: "backend-repo"
-      IMAGE_TAG: "latest"
+  deploy:
+    runs-on: self-hosted   # 이것만 있으면 됨
 
     steps:
-      # 1) 코드 체크아웃
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) AWS 자격증명 설정
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      # 3) ECR 로그인
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # 4) 백엔드 이미지 빌드 & 푸시
-      - name: Build and push backend image
-        working-directory: backend
+      - name: Login to ECR
         run: |
-          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f Dockerfile .
-          docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-          docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
+          aws ecr get-login-password --region ap-northeast-2 \
+          | docker login --username AWS --password-stdin 314432538223.dkr.ecr.ap-northeast-2.amazonaws.com
 
-      # 5) 백엔드 EC2에 SSH 접속해서 컨테이너 교체
-      - name: Deploy to Backend EC2
-        env:
-          EC2_HOST: ${{ secrets.EC2_BACKEND_HOST }}   # 13.124.17.3 또는 백엔드용 EIP
-          EC2_USER: "ec2-user"
-          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}         # 프론트와 같은 키면 그대로 재사용
+      - name: Build backend image
         run: |
-          echo "$EC2_KEY" > ec2_key.pem
-          chmod 600 ec2_key.pem
+          docker build -t backend-repo:latest -f backend/Dockerfile ./backend
+          docker tag backend-repo:latest 314432538223.dkr.ecr.ap-northeast-2.amazonaws.com/backend-repo:latest
+          docker push 314432538223.dkr.ecr.ap-northeast-2.amazonaws.com/backend-repo:latest
 
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ${EC2_USER}@${EC2_HOST} << 'EOF'
-            set -e
-            AWS_REGION="ap-northeast-2"
-            AWS_ACCOUNT_ID="314432538223"
-            ECR_REPOSITORY="backend-repo"
-            IMAGE_TAG="latest"
-
-            echo "▶ ECR 로그인"
-            aws ecr get-login-password --region ${AWS_REGION} \
-              | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
-            echo "▶ 최신 backend 이미지 pull"
-            docker pull ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-
-            echo "▶ 기존 backend 컨테이너 중지/삭제"
-            docker rm -f backend || true
-
-            echo "▶ 새 backend 컨테이너 실행"
-            docker run -d \
-              --name backend \
-              --restart unless-stopped \
-              -p 8080:8080 \
-              ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-
-            echo "✅ Backend 배포 완료"
-          EOF
+      - name: Restart backend container
+        run: |
+          docker rm -f backend || true
+          docker pull 314432538223.dkr.ecr.ap-northeast-2.amazonaws.com/backend-repo:latest
+          docker run -d --name backend -p 8080:8080 --restart unless-stopped \
+            314432538223.dkr.ecr.ap-northeast-2.amazonaws.com/backend-repo:latest
