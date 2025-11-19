@@ -2,7 +2,7 @@ name: Deploy Frontend
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
       - "frontend/**"
       - ".github/workflows/deploy-frontend.yml"
@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) AWS 자격증명 설정 (GitHub Secrets 사용)
+      # 2) AWS 자격증명 설정
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,18 +37,17 @@ jobs:
 
       # 4) 프론트 이미지 빌드 & 푸시
       - name: Build and push frontend image
-        working-directory: frontend
         run: |
-           docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f frontend/Dockerfile ./frontend
+          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
           docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
 
-      # 5) 프론트 EC2에 SSH 접속해서 컨테이너 교체
+      # 5) 프론트 EC2에 배포
       - name: Deploy to Frontend EC2
         env:
-          EC2_HOST: ${{ secrets.EC2_FRONTEND_HOST }}   # 43.200.123.27 넣어둘 것
-          EC2_USER: "ec2-user"
-          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}          # aws-keypair.pem 내용
+          EC2_HOST: ${{ secrets.EC2_FRONTEND_HOST }}
+          EC2_USER: ec2-user
+          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           echo "$EC2_KEY" > ec2_key.pem
           chmod 600 ec2_key.pem
@@ -76,6 +75,4 @@ jobs:
               --restart unless-stopped \
               -p 80:80 \
               ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-
-            echo "✅ Frontend 배포 완료"
           EOF

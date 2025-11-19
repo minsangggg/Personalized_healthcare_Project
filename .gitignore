@@ -226,9 +226,6 @@ LICENSE
 
 frontend/node_modules/
 *.csv
-*.ico
-*.png
-*.mp4
 *.mjs
 backend/vision_ocr.json
 tsc
@@ -236,8 +233,8 @@ tsserver
 *.flow
 database/data
 *.example
-*.html
-*.jpg
+
+
 .env.production
 .env.streamlit
 
