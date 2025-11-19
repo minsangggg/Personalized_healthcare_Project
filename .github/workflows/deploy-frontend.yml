@@ -39,7 +39,7 @@ jobs:
       - name: Build and push frontend image
         working-directory: frontend
         run: |
-          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f Dockerfile .
+           docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f frontend/Dockerfile ./frontend
           docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
 

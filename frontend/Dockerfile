@@ -5,13 +5,13 @@ FROM node:18 AS build
 WORKDIR /app
 
 # 1️ frontend의 package.json / package-lock.json만 복사
-COPY frontend/package*.json ./
+COPY package*.json ./
 
 # 2️ 의존성 설치
 RUN npm install
 
 # 3️ frontend 소스 전체 복사
-COPY frontend/ ./
+COPY . .
 
 # 4️ CRA 빌드 (build 폴더 생성)
 RUN npm run build
