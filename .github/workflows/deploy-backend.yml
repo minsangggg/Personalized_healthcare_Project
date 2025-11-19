@@ -39,7 +39,7 @@ jobs:
       - name: Build and push backend image
         working-directory: backend
         run: |
-           docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f backend/Dockerfile ./backend
+          docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f backend/Dockerfile ./backend
           docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
 
