@@ -21,7 +21,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   return (
-    // ✅ AuthProvider를 Router 바깥으로 이동
+    //  AuthProvider를 Router 바깥으로 이동
     <AuthProvider>
       <Router>
         {showSplash ? (
