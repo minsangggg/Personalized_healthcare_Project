@@ -19,5 +19,5 @@
 ### 6. 비용추정 상세
 ![RecipeDetail](/assets/gif6.gif)
 
-### 7. Streamlit Dashboard
+### 7. Streamlit Admin Dashboard
 ![Dashboard](/assets/streamlit1.gif)
