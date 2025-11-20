@@ -104,7 +104,7 @@ def adapt_recipes_with_llm(
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            timeout=1.5,
+            timeout=3,
         )
     except OpenAIError as exc:  # pragma: no cover - network call
         raise LLMAdaptationError("LLM 호출에 실패했습니다.") from exc

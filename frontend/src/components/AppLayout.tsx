@@ -63,7 +63,7 @@ export default function AppLayout() {
             <a href="#reserve" className="hover:text-[#8B4000]">추천받기</a>
           </div>
           <p className="text-xs leading-relaxed">
-            레시피 마켓 | 대표자 홍길동 <br />
+            레시피 마켓 | 대표자 박민상 <br />
             123-45-6789 [사업자정보확인] | +82-1234-4567 <br />
             jejufarmersmarket@gmail.com
           </p>

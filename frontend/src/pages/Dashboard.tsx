@@ -44,6 +44,63 @@ const TEXT = {
   },
 };
 const DONUT_COLORS = ["#d96881", "#f3a87d", "#f7cf66"];
+const LAST_ACTION_KEY = "cookus:last-action-change";
+const DASHBOARD_CACHE_PREFIX = "cookus:dashboard-cache:";
+
+type DashboardCachePayload = {
+  monthlyCount: number;
+  totalSavings: number;
+  savingsNote: string;
+  ingredientsTop: Array<{ name: string; count: number }>;
+  triggerStamp: string | null;
+  cachedAt: number;
+};
+
+const getSessionStorage = (): Storage | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+const readDashboardCache = (userId: string): DashboardCachePayload | null => {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return null;
+  }
+  const key = `${DASHBOARD_CACHE_PREFIX}${userId}`;
+  const raw = storage.getItem(key);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as DashboardCachePayload;
+  } catch {
+    storage.removeItem(key);
+    return null;
+  }
+};
+
+const writeDashboardCache = (userId: string, payload: DashboardCachePayload): void => {
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.setItem(`${DASHBOARD_CACHE_PREFIX}${userId}`, JSON.stringify(payload));
+  } catch {
+    // ignore write failures (e.g., storage quota)
+  }
+};
+
+const readActionStamp = (): string | null => {
+  const storage = getSessionStorage();
+  return storage?.getItem(LAST_ACTION_KEY) ?? null;
+};
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -53,53 +110,126 @@ export default function Dashboard() {
   const [totalSavings, setTotalSavings] = useState<number>(0);
   const [savingsNote, setSavingsNote] = useState<string>("");
   const [ingredientsTop, setIngredientsTop] = useState<Array<{ name: string; count: number }>>([]);
+  const [lastActionStamp, setLastActionStamp] = useState<string | null>(() => readActionStamp());
 
   useEffect(() => {
-    const fetchMonthlyCount = async () => {
-      if (!userId) {
-        setMonthlyCount(0);
-        return;
-      }
-      try {
-        const data = await apiFetch<{ completed_count?: number }>(
-          `/selected_recipe/monthly_completed?user_id=${encodeURIComponent(userId)}`
-        );
-        setMonthlyCount(typeof data.completed_count === "number" ? data.completed_count : 0);
-      } catch (error) {
-        console.error("Failed to fetch monthly completed recipes:", error);
-        setMonthlyCount(0);
-      }
-    };
-    fetchMonthlyCount();
+    setLastActionStamp(readActionStamp());
   }, [userId]);
 
   useEffect(() => {
-    const fetchSavings = async () => {
-      if (!userId) {
-        setTotalSavings(0);
-        setSavingsNote("");
-        return;
-      }
-      try {
-        const data = await apiFetch<{ total_savings?: number; notes?: string; ingredients_top?: Array<{ name: string; count: number }> }>(
-          `/dashboard/monthly_savings?user_id=${encodeURIComponent(userId)}`
-        );
-        setTotalSavings(typeof data.total_savings === "number" ? data.total_savings : 0);
-        setSavingsNote(typeof data.notes === "string" ? data.notes : "");
-        setIngredientsTop(Array.isArray(data.ingredients_top) ? data.ingredients_top : []);
-      } catch (error) {
-        console.error("Failed to fetch monthly savings:", error);
-        setTotalSavings(0);
-        setSavingsNote("");
-        setIngredientsTop([]);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === LAST_ACTION_KEY) {
+        setLastActionStamp(event.newValue ?? null);
       }
     };
-    fetchSavings();
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setMonthlyCount(0);
+      setTotalSavings(0);
+      setSavingsNote("");
+      setIngredientsTop([]);
+      return;
+    }
+    const cached = readDashboardCache(userId);
+    if (cached) {
+      setMonthlyCount(typeof cached.monthlyCount === "number" ? cached.monthlyCount : 0);
+      setTotalSavings(typeof cached.totalSavings === "number" ? cached.totalSavings : 0);
+      setSavingsNote(typeof cached.savingsNote === "string" ? cached.savingsNote : "");
+      setIngredientsTop(Array.isArray(cached.ingredientsTop) ? cached.ingredientsTop : []);
+    }
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setMonthlyCount(0);
+      setTotalSavings(0);
+      setSavingsNote("");
+      setIngredientsTop([]);
+      return;
+    }
+
+    const currentStamp = lastActionStamp ?? null;
+    const cached = readDashboardCache(userId);
+    if (cached && cached.triggerStamp === currentStamp) {
+      return;
+    }
+
+    let cancelled = false;
+    const refreshDashboard = async () => {
+      try {
+        const [completedData, savingsData] = await Promise.all([
+          apiFetch<{ completed_count?: number }>(
+            `/selected_recipe/monthly_completed?user_id=${encodeURIComponent(userId)}`
+          ),
+          apiFetch<{
+            total_savings?: number;
+            notes?: string;
+            ingredients_top?: Array<{ name: string; count: number }>;
+          }>(`/dashboard/monthly_savings?user_id=${encodeURIComponent(userId)}`),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        const nextMonthlyCount =
+          typeof completedData.completed_count === "number" ? completedData.completed_count : 0;
+        const nextTotalSavings =
+          typeof savingsData.total_savings === "number" ? savingsData.total_savings : 0;
+        const nextNote = typeof savingsData.notes === "string" ? savingsData.notes : "";
+        const nextIngredientsTop = Array.isArray(savingsData.ingredients_top)
+          ? savingsData.ingredients_top
+          : [];
+
+        setMonthlyCount(nextMonthlyCount);
+        setTotalSavings(nextTotalSavings);
+        setSavingsNote(nextNote);
+        setIngredientsTop(nextIngredientsTop);
+
+        writeDashboardCache(userId, {
+          monthlyCount: nextMonthlyCount,
+          totalSavings: nextTotalSavings,
+          savingsNote: nextNote,
+          ingredientsTop: nextIngredientsTop,
+          triggerStamp: currentStamp,
+          cachedAt: Date.now(),
+        });
+      } catch (error) {
+        console.error("Failed to refresh dashboard data:", error);
+        if (!cached) {
+          setMonthlyCount(0);
+          setTotalSavings(0);
+          setSavingsNote("");
+          setIngredientsTop([]);
+        }
+      }
+    };
+
+    refreshDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, lastActionStamp]);
 
   return (
-    <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
+    <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showHomeButton={false}>
       <header className="relative bg-transparent text-center pt-4 pb-2 sticky top-0 z-50">
+        <button
+          type="button"
+          aria-label="메뉴"
+          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-[#6B2E00] text-white shadow hover:bg-[#4c2100]"
+        >
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+        </button>
         <h1 className="text-xl font-extrabold">CookUS</h1>
         <nav className="mt-2 flex justify-center gap-6 text-sm font-medium">
           <Link to="/" className="hover:text-[#8B4000]">
@@ -223,8 +353,9 @@ export default function Dashboard() {
                       );
                       const midOffset = offset + dash / 2;
                       const angle = midOffset / radius;
-                      const textX = 80 + Math.cos(angle) * 40;
-                      const textY = 80 + Math.sin(angle) * 40;
+                      const labelRadius = radius - 5;
+                      const textX = 80 + Math.cos(angle) * labelRadius;
+                      const textY = 80 + Math.sin(angle) * labelRadius;
                       offset += dash;
                       return (
                         <g key={`${item.name}-segment`}>
@@ -234,10 +365,10 @@ export default function Dashboard() {
                             y={textY}
                             textAnchor="middle"
                             dominantBaseline="middle"
-                            fontSize="11"
-                            fill="#ffffff"
-                            fontWeight="600"
-                          >
+                            fontSize="12"
+                            fill="#6B2E00"
+                            fontWeight="700"
+                            >
                             {Math.round(value * 100)}%
                           </text>
                         </g>
@@ -255,14 +386,14 @@ export default function Dashboard() {
                   const percentage = total > 0 ? ((item.count / total) * 100).toFixed(1) : "0.0";
                   return (
                     <li key={`${item.name}-${index}`} className="flex items-center justify-between rounded-2xl bg-[#FDF4E3] px-4 py-2 shadow-sm">
-                      <span className="flex items-center gap-2 font-medium">
+                      <span className="flex items-center gap-2 font-medium whitespace-nowrap">
                         <span
                           className="inline-block h-3 w-3 rounded-full"
                           style={{ backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length] }}
                         />
                         {item.name}
                       </span>
-                      <span className="text-xs text-[#6B2E00]/70">{percentage}%</span>
+                      <span className="whitespace-nowrap text-xs text-[#6B2E00]/70">{percentage}%</span>
                     </li>
                   );
                 })}

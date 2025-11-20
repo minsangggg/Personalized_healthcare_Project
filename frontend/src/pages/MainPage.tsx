@@ -100,7 +100,7 @@ const TEXT = {
   },
   alerts: {
     requireLoginSave: "\uB85C\uADF8\uC778 \uD6C4\uC5D0 \uB0C9\uC7A5\uACE0\uB97C \uC800\uC7A5\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
-    saveSuccess: "\uB0C9\uC7A5\uACE0\uAC00 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+    saveSuccess: "\uB0C9\uC7A5\uACE0\uC5D0 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
     saveFail: "\uB0C9\uC7A5\uACE0 \uC800\uC7A5\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4.",
     requireLoginRecommend: "\uB85C\uADF8\uC778 \uD6C4\uC5D0 \uCD94\uCC9C\uC744 \uBC1B\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
     fetchFail: "\uCD94\uCC9C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.",
@@ -167,6 +167,7 @@ const [lastRecommended, setLastRecommended] = useState<RecommendationItem[]>(() 
 const [videoUrl, setVideoUrl] = useState<string | null>(null);
 const [videoLoading, setVideoLoading] = useState(false);
 const [cleanedSteps, setCleanedSteps] = useState<string[]>([]);
+const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [showQuickMenu, setShowQuickMenu] = useState(false);
   const [quickMenuPos, setQuickMenuPos] = useState<{ top: number; left: number }>({ top: 12, left: 12 });
   const quickMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -349,7 +350,7 @@ const stepsToRender = cleanedSteps.length ? cleanedSteps : stepList;
           })
         )
       );
-      alert(TEXT.alerts.saveSuccess);
+      setSaveSuccessMessage(TEXT.alerts.saveSuccess);
     } catch (error) {
       console.error("Failed to save fridge:", error);
       alert(TEXT.alerts.saveFail);
@@ -640,11 +641,11 @@ const handleWatchVideo = async () => {
             }
             setShowQuickMenu(true);
           }}
-          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-white/70 text-[#6B2E00] shadow hover:bg-white"
+          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-[#6B2E00] text-white shadow hover:bg-[#4c2100]"
         >
-          <span className="block h-[2px] w-5 bg-current" />
-          <span className="block h-[2px] w-5 bg-current" />
-          <span className="block h-[2px] w-5 bg-current" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
         </button>
         <h1 className="text-xl font-extrabold tracking-wide">CookUS</h1>
         <nav className="mt-3 flex items-center justify-center gap-5 text-sm font-semibold">
@@ -1148,6 +1149,22 @@ const handleWatchVideo = async () => {
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {saveSuccessMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
+          <div className="w-[320px] rounded-[32px] bg-[#FFF8EC] px-6 py-8 text-center text-[#6B2E00] shadow-[0_20px_45px_rgba(107,46,0,0.35)]">
+            <p className="text-xs font-semibold tracking-[0.3em] text-[#B56B1D]">COOKUS</p>
+            <p className="mt-3 text-xl font-extrabold">{saveSuccessMessage}</p>
+            <button
+              type="button"
+              onClick={() => setSaveSuccessMessage(null)}
+              className="mt-6 rounded-full bg-[#6B2E00] px-6 py-2 text-white shadow hover:bg-[#4c2100]"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}

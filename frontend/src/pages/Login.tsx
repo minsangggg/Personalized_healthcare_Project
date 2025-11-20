@@ -8,6 +8,7 @@ import VideoBackgroundLayout from "../components/VideoBackgroundLayout";
 export default function Login() {
   const [idInput, setIdInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -31,8 +32,7 @@ export default function Login() {
 
       const displayName = data.name || data.user_name || trimmedId;
       login({ id: trimmedId, name: displayName });
-      alert(`${displayName}님, 환영합니다!`);
-      navigate("/");
+      setWelcomeMessage(`${displayName}님, 환영합니다!`);
     } catch (error) {
       console.error("로그인 오류:", error);
       const message =
@@ -133,7 +133,7 @@ export default function Login() {
               </a>
             </div>
             <p className="text-xs leading-relaxed text-[#8C5C2D]">
-              레시피 마켓 | 대표자 홍길동
+              레시피 마켓 | 대표자 박민상
               <br />
               123-45-6789 (사업자정보확인) | +82-1234-4567
               <br />
@@ -142,6 +142,24 @@ export default function Login() {
             <p className="mt-3 text-xs text-[#8B4000]">이용약관 | 개인정보처리방침</p>
           </div>
         </section>
+        {welcomeMessage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-[320px] rounded-[32px] bg-[#FFF8EC] px-6 py-8 text-center text-[#6B2E00] shadow-[0_20px_45px_rgba(107,46,0,0.35)]">
+              <p className="text-xs font-semibold tracking-[0.3em] text-[#B56B1D]">COOKUS</p>
+              <p className="mt-3 text-xl font-extrabold">{welcomeMessage}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setWelcomeMessage(null);
+                  navigate("/");
+                }}
+                className="mt-6 rounded-full bg-[#6B2E00] px-6 py-2 text-white shadow hover:bg-[#4c2100]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </VideoBackgroundLayout>
   );

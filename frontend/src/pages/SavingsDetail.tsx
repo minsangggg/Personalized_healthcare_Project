@@ -78,8 +78,17 @@ export default function SavingsDetail() {
   }, [userId]);
 
   return (
-    <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
+    <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showHomeButton={false}>
       <header className="relative pt-6 pb-4 text-center">
+        <button
+          type="button"
+          aria-label="메뉴"
+          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-[#6B2E00] text-white shadow hover:bg-[#4c2100]"
+        >
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+        </button>
         <h1 className="text-xl font-extrabold tracking-wide">CookUS</h1>
         <nav className="mt-3 flex items-center justify-center gap-5 text-sm font-semibold">
           <Link to="/" className="hover:text-[#8B4000]">

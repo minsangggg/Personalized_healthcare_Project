@@ -213,7 +213,7 @@ backend/.env
 backend/*.log
 backend/.pytest_cache/
 backend/.mypy_cache/
-
+backend/vision_ocr.json
 
 *.md
 *.cmd
@@ -227,7 +227,7 @@ LICENSE
 frontend/node_modules/
 *.csv
 *.mjs
-backend/vision_ocr.json
+
 tsc
 tsserver
 *.flow

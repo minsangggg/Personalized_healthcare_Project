@@ -268,6 +268,7 @@ export default function CookCalendar() {
             : item
         )
       );
+      sessionStorage.setItem("cookus:last-action-change", Date.now().toString());
     } catch (error) {
       console.error("Failed to update recipe action:", error);
       alert("상태를 변경하지 못했습니다.");
@@ -399,8 +400,17 @@ const handleWatchVideo = async () => {
           }
         `}
       </style>
-      <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
+      <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showHomeButton={false}>
         <header className="relative bg-transparent text-center pt-4 pb-2 sticky top-0 z-50">
+          <button
+            type="button"
+            aria-label="메뉴"
+            className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-[#6B2E00] text-white shadow hover:bg-[#4c2100]"
+          >
+            <span className="block h-[2px] w-5 bg-white/80" />
+            <span className="block h-[2px] w-5 bg-white/80" />
+            <span className="block h-[2px] w-5 bg-white/80" />
+          </button>
           <h1 className="text-xl font-extrabold">CookUS</h1>
           <nav className="mt-2 flex justify-center gap-6 text-sm font-medium">
             <Link to="/" className="hover:text-[#8B4000]">
@@ -616,7 +626,10 @@ const handleWatchVideo = async () => {
               </button>
             </div>
             {videoUrl && (
-              <div className="mt-4 w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+              <div
+                className="mt-4 w-full overflow-hidden rounded-2xl bg-black"
+                style={{ aspectRatio: "16 / 9" }}
+              >
                 <iframe
                   src={videoUrl}
                   title="추천 영상"
@@ -632,11 +645,3 @@ const handleWatchVideo = async () => {
     </>
   );
 }
-
-
-
-
-
-
-
-

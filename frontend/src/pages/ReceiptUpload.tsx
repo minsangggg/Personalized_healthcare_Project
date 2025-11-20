@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiX } from "react-icons/fi";
+import { FaUserCircle } from "react-icons/fa";
 
 import { useAuth } from "./AuthContext";
 import VideoBackgroundLayout from "../components/VideoBackgroundLayout";
@@ -27,9 +28,18 @@ const TEXT = {
 };
 
 const CloseIcon = FiX as ComponentType<{ className?: string }>;
+const UserCircleIcon = FaUserCircle as ComponentType<{ className?: string }>;
+const NAV_TEXT = {
+  fridge: "냉장고",
+  calendar: "캘린더",
+  dashboard: "대시보드",
+  logout: "로그아웃",
+  login: "로그인",
+  myPage: "마이페이지",
+};
 
 export default function ReceiptUpload() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const userId = useMemo(() => user?.id ?? localStorage.getItem("currentUser") ?? "", [user?.id]);
   const navigate = useNavigate();
 
@@ -148,16 +158,48 @@ export default function ReceiptUpload() {
     typeof amount === "number" ? `₩${amount.toLocaleString("ko-KR")}` : "-";
 
   return (
-    <VideoBackgroundLayout contentClassName="text-[#6B2E00]">
-      <header className="relative pt-6 pb-3 text-center">
-        <h1 className="text-xl font-extrabold tracking-wide">{TEXT.title}</h1>
+    <VideoBackgroundLayout contentClassName="text-[#6B2E00]" showHomeButton={false}>
+      <header className="relative bg-transparent text-center pt-4 pb-2 sticky top-0 z-50">
         <button
           type="button"
-          onClick={() => navigate(-1)}
-          className="absolute left-6 top-6 text-sm font-semibold text-[#6B2E00] underline"
+          aria-label="메뉴"
+          className="absolute left-6 top-3 flex h-9 w-9 flex-col items-center justify-center gap-[6px] rounded-full bg-[#6B2E00] text-white shadow hover:bg-[#4c2100]"
+          onClick={() => navigate("/")}
         >
-          돌아가기
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
+          <span className="block h-[2px] w-5 bg-white/80" />
         </button>
+        <h1 className="text-xl font-extrabold tracking-wide">{TEXT.title}</h1>
+        <nav className="mt-2 flex justify-center gap-6 text-sm font-bold">
+          <Link to="/" className="hover:text-[#8B4000]">
+            {NAV_TEXT.fridge}
+          </Link>
+          <span>|</span>
+          <Link to="/calendar" className="hover:text-[#8B4000]">
+            {NAV_TEXT.calendar}
+          </Link>
+          <span>|</span>
+          <Link to="/dashboard" className="hover:text-[#8B4000]">
+            {NAV_TEXT.dashboard}
+          </Link>
+          <span>|</span>
+          {user ? (
+            <button onClick={logout} className="hover:text-[#8B4000]">
+              {NAV_TEXT.logout}
+            </button>
+          ) : (
+            <Link to="/login" className="hover:text-[#8B4000]">
+              {NAV_TEXT.login}
+            </Link>
+          )}
+        </nav>
+        <Link
+          to="/mypage"
+          className="absolute right-6 top-3 flex items-center justify-center hover:text-[#8B4000] transition"
+        >
+          <UserCircleIcon className={`h-8 w-8 ${user ? "text-[#6B2E00]" : "text-gray-400"}`} />
+        </Link>
       </header>
 
       <main className="flex-1 px-6 pb-8">
@@ -254,11 +296,6 @@ export default function ReceiptUpload() {
           )}
         </section>
 
-        <div className="mt-6 text-center text-xs text-[#6B2E00]/70">
-          <Link to="/" className="font-semibold text-[#8B4000] underline">
-            메인으로 돌아가기
-          </Link>
-        </div>
       </main>
     </VideoBackgroundLayout>
   );

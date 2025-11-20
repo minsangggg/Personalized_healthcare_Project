@@ -42,7 +42,7 @@ const TEXT = {
     title: "2025 레시피 마켓",
     about: "소개",
     faq: "FAQ",
-    company: "레시피 마켓 | 대표자 홍길동",
+    company: "레시피 마켓 | 대표자 박민상",
     contact: "123-45-6789 (사업자정보확인) | +82-1234-4567",
     email: "parkms@gmail.com",
     policy: "이용약관 | 개인정보처리방침",
