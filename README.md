@@ -1,23 +1,23 @@
-## 🎬 CookUS Demo GIFs
+## 🎬 CookUS Demo GIFs(크기 조정중 입니다..)
 
 
-### 1. 앱 실행 스플래시 화면
-![Splash](/assets/Animation6.gif)
+### 1. 앱 실행화면
+![Splash](/assets/gif1.gif)
 
 ### 2. 메인 화면
-![MainPage](/assets/Animation5.gif)
+![MainPage](/assets/gif2.gif)
 
-### 3. 추천 결과 상세 화면
-![Recommendation](/assets/Animation4.gif)
+### 3. LLM을 이용한 추천 상세 
+![Recommendation](/assets/gif3.gif)
 
-### 4. 요리 캘린더
-![Calendar](/assets/Animation3.gif)
+### 4. 영수증 OCR
+![Calendar](/assets/gif4.gif)
 
-### 5. 절약 상세 화면
-![SavingDetail](/assets/Animation2.gif)
+### 5. 캘린더&LLM을 이용한 비용추정
+![SavingDetail](/assets/gif5.gif)
 
-### 6. 레시피 상세 모달
-![RecipeDetail](/assets/Animation1.gif)
+### 6. 비용추정 상세
+![RecipeDetail](/assets/gif6.gif)
 
-### 7. Streamlit Dashboard
+### 7. 관리자 대시보드(Streamlit)
 ![Dashboard](/assets/streamlit1.gif)
