@@ -1,4 +1,4 @@
-## 🎬 CookUS Demo GIFs(크기 조정중 입니다.)
+## 🎬 CookUS Demo GIFs(크기 조정중 입니다)
 
 
 ### 1. 앱 실행화면
