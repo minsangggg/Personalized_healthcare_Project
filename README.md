@@ -19,5 +19,5 @@
 ### 6. 비용추정 상세
 ![RecipeDetail](/assets/gif6.gif)
 
-### 7. 관리자 대시보드(Streamlit)
+### 7. 관리자 대시보드를 이용한 데이터 분석
 ![Dashboard](/assets/streamlit1.gif)
